@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Plant Care">
+  <rect width="512" height="512" fill="#2f6d4f"/>
+  <g transform="translate(256 256) scale(.72) translate(-256 -256)">
+    <path d="M256 400V236" stroke="#e3f1e8" stroke-width="26" stroke-linecap="round"/>
+    <path d="M256 250c0-70 46-126 112-140 8 76-38 136-112 140z" fill="#7ec39a"/>
+    <path d="M256 300c-8-62-56-104-116-110 0 68 46 112 116 110z" fill="#a8d9bd"/>
+    <path d="M196 400h120l-14 72H210z" fill="#e3f1e8"/>
+  </g>
+</svg>

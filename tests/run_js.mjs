@@ -11,6 +11,9 @@ const out = cases.map(({ why, today, plant }) => ({
   why,
   status: sched.statusFor(plant, today),
   occurrences: sched.occurrencesInRange(plant, today, sched.addDays(today, 120), today),
+  // A calendar window that starts in the past: this is where an overdue plant
+  // used to be projected onto the wrong days.
+  calendar: sched.occurrencesInRange(plant, sched.addDays(today, -35), sched.addDays(today, 35), today),
   amount: sched.amountText(plant),
   interval: sched.intervalOn(plant, today),
 }));

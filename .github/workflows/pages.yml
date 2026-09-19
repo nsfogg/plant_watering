@@ -5,6 +5,7 @@ on:
     branches: [main]
     paths-ignore:
       - 'README.md'
+      - 'tests/**'
       - '.github/workflows/notify.yml'
   workflow_dispatch:
 
@@ -26,10 +27,23 @@ jobs:
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - uses: actions/checkout@v4
+
       - uses: actions/configure-pages@v5
+
+      - name: Stage the site
+        # Publish only what the browser needs — not the tests, scripts,
+        # package.json or README, which would otherwise be served too.
+        run: |
+          mkdir -p _site
+          cp index.html manifest.webmanifest sw.js .nojekyll _site/
+          cp -r assets data _site/
+          find _site -name '__pycache__' -type d -prune -exec rm -rf {} +
+          echo "Published files:" && find _site -type f | sort
+
       - name: Upload site
         uses: actions/upload-pages-artifact@v3
         with:
-          path: '.'
+          path: '_site'
+
       - id: deployment
         uses: actions/deploy-pages@v4

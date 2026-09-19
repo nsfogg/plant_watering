@@ -22,9 +22,11 @@ Photos are shrunk in your browser before they are saved, so phone pictures don't
 
 ---
 
+> **Before you start:** free GitHub Pages only serves **public** repositories, so everything in `data/plants.json` — plant names, rooms, notes, photos — is visible to anyone who looks. That is usually fine for plants. Your phone number is the one thing that stays private: it goes in a repository secret, never in the repo.
+
 ## 1. Turn on GitHub Pages
 
-1. **Settings → Pages → Build and deployment → Source: GitHub Actions.**
+1. **Settings → Pages → Build and deployment → Source: GitHub Actions.** Do this *first* — if you skip it, the deploy fails with `Get Pages site failed … HttpError: Not Found`, because a workflow is not allowed to enable Pages for you.
 2. Push to `main`. The `Deploy site to GitHub Pages` workflow publishes the site.
 3. It goes live at **https://nsfogg.github.io/plant_watering/**
 
@@ -36,7 +38,14 @@ Add a link to your main site — the simplest option, and nothing else changes:
 <a href="https://nsfogg.github.io/plant_watering/">🌿 Plant Care</a>
 ```
 
-Prefer `nsfogg.github.io/plants/`? Copy `index.html`, `assets/`, and `data/` into a `plants/` folder in the `nsfogg.github.io` repository. Every path in the site is relative, so it works from any folder. Keep the Action in *this* repository for the texts — or copy `scripts/` and `.github/workflows/notify.yml` over too, pointing at whichever `plants.json` you keep up to date.
+**Prefer `nsfogg.github.io/plants/`?** Copy `index.html`, `manifest.webmanifest`, `sw.js`, `assets/` and `data/` into a `plants/` folder in the `nsfogg.github.io` repository — every path in the site is relative, so it runs from any folder. Then, in the site's **Settings**, set:
+
+- *Repository name* → `nsfogg.github.io`
+- *Folder inside the repository* → `plants`
+
+Without that folder setting, Publish would write to `data/plants.json` at the **root** of your user site instead of `plants/data/plants.json`, and your changes would seem to disappear. Press **Test connection** afterwards: it tells you exactly which file it found.
+
+For the daily text, keep the Action in whichever repository holds the `plants.json` you actually update.
 
 ---
 
@@ -54,13 +63,23 @@ The token is stored only in your own browser's `localStorage` and is sent only t
 
 **No token?** Use **Download plants.json** and commit the file to `data/plants.json` yourself — or just edit `data/plants.json` by hand; the format is plain and documented below.
 
+**Turn on "Publish automatically"** in Settings and the site commits for you after every watering or edit, so the daily text is never working from stale data. Without it, a banner across the top of every page reminds you that there are unpublished changes.
+
+Fine-grained tokens **expire** — 30 days by default, and up to a year if you choose. The site reads the expiry date from GitHub and warns you in Settings and after publishing when it is within a week; when it lapses, create a new token and paste it in. Nothing else changes.
+
+**Editing from two devices** is safe: publishing merges with whatever is already on GitHub, plant by plant, using each plant's own timestamp. Watering the fern on your phone and renaming the ficus on your laptop both survive, whichever one publishes second. Deletions are remembered too, so a stale device cannot resurrect a plant you removed.
+
 > ⚠️ This repository is public, so everything in `data/plants.json` is public. That is fine for plants. Your phone number is **not** stored there — it lives in repository secrets.
 
 ---
 
 ## 3. Daily text message
 
-`.github/workflows/notify.yml` runs every morning at **12:00 UTC (8am EDT / 7am EST)**, reads `data/plants.json`, and texts you the plants due that day with their watering instructions. Change the `cron:` line to move the time — GitHub schedules in UTC only, so pick UTC = local + 4 (EDT) or + 5 (EST).
+`.github/workflows/notify.yml` reads `data/plants.json` and texts you the plants due that day with their watering instructions.
+
+It runs **hourly**, and `scripts/notify.py` sends on the first run at or after the time you choose in **Settings → Send the text at** (8am by default), at most once a day. That is deliberate: GitHub's scheduler only understands UTC and is often 10–60 minutes late, so an hourly check means the text arrives at the right *local* time all year — including across daylight saving — and a run GitHub delays or drops is simply picked up by the next one. You never have to edit the cron line.
+
+**Settings → Warn me this many days early** adds a heads-up line for plants coming due soon, if you want the warning before the day itself.
 
 Pick **one** of the two routes and add its secrets under **Settings → Secrets and variables → Actions → New repository secret**.
 
@@ -115,7 +134,10 @@ Log it: https://nsfogg.github.io/plant_watering/
 
 Nothing due? No text is sent.
 
-> GitHub disables scheduled workflows in repositories with no activity for 60 days. Each scheduled run commits `data/notify-state.json`, which counts as activity — so the schedule keeps itself alive.
+> **Two things to know about scheduled workflows**
+>
+> - GitHub disables them in repositories with no activity for 60 days. The daily run commits `data/notify-state.json` (once a day, whatever happens to the send — including failures), which counts as activity, so the schedule keeps itself alive.
+> - That commit is made by `github-actions[bot]`. If you turn on branch protection for `main`, either leave an exception for GitHub Actions or expect the "Record the run" step to warn. The text still sends either way.
 
 ---
 
@@ -164,7 +186,11 @@ Nothing due? No text is sent.
 }
 ```
 
-Only `id`, `name` and `water.intervalDays` are required. The next watering is always `lastWatered + interval`, where the interval switches to `winterIntervalDays` during November–February. A plant with no `lastWatered` is due immediately.
+Only `id`, `name` and `water.intervalDays` are required. The next watering is always `lastWatered + interval`, where the interval switches to `winterIntervalDays` during November–February. A plant with no `lastWatered` is due immediately, and an overdue plant appears on **today** in the calendar with its schedule restarting from the day you actually water it.
+
+Dates must be exactly `YYYY-MM-DD` and intervals must be whole days — both the site and the texter reject anything else, so they can never disagree about which day a plant is due.
+
+`settings` also accepts `notifyHour` (0–23, the local hour the text goes out) and `remindAheadDays` (0–14, how many days of early warning to include).
 
 The two example plants are there to show the shape — delete them once you have added your own.
 
@@ -174,9 +200,11 @@ The two example plants are there to show the shape — delete them once you have
 
 ```
 index.html                     the whole site
+manifest.webmanifest           makes it installable on a phone
+sw.js                          service worker — the site works with no signal
 assets/css/style.css
 assets/js/app.js               views, rendering, events
-assets/js/store.js             localStorage + GitHub commits
+assets/js/store.js             localStorage, merging, GitHub commits
 assets/js/schedule.js          when is each plant due          ─┐ same rules,
 assets/js/images.js            resize photos in the browser     │ two languages,
 scripts/schedule.py            when is each plant due          ─┘ kept in sync by tests
@@ -185,14 +213,18 @@ data/plants.json               your plants
 data/images/                   photos uploaded from the site
 .github/workflows/pages.yml    deploys the site
 .github/workflows/notify.yml   sends the daily text
-tests/                         schedule + message tests, incl. JS/Python parity
+tests/                         schedule, merge and message tests
 ```
+
+On a phone, open the site and use **Add to Home Screen**: it installs like an app, and thanks to `sw.js` it opens and works at the sink even with no signal. Anything you change offline is saved locally and published the next time you have a connection.
 
 ## Development
 
 ```bash
-python3 -m http.server 8000     # then open http://localhost:8000
-python3 tests/test_schedule.py  # run the tests (node optional, for parity)
+python3 -m http.server 8000       # then open http://localhost:8000
+python3 tests/test_schedule.py    # schedule + message tests (node optional, for JS/Python parity)
+node tests/merge.test.mjs         # multi-device merge tests
+python3 scripts/notify.py --dry-run --no-state
 ```
 
 The site uses ES modules, so open it over `http://`, not as a `file://` path.

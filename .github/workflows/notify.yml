@@ -2,8 +2,13 @@ name: Daily watering text
 
 on:
   schedule:
-    # 12:00 UTC = 8am EDT / 7am EST. GitHub runs cron in UTC only.
-    - cron: '0 12 * * *'
+    # Hourly, because GitHub cron only speaks UTC. notify.py sends on the first
+    # run at or after the hour you picked in Settings, at most once a day — so
+    # the text lands at the right local time all year without you touching this
+    # file when the clocks change, and a run that GitHub delays or skips is
+    # simply picked up by the next hour.
+    # Minute 7 rather than 0: the top of the hour is the busiest, most delayed slot.
+    - cron: '7 * * * *'
   workflow_dispatch:
     inputs:
       today:
@@ -26,6 +31,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          # Full history so the rebase before pushing the run record cannot
+          # fall outside a shallow clone's boundary.
+          fetch-depth: 0
 
       - uses: actions/setup-python@v5
         with:
@@ -44,23 +53,38 @@ jobs:
           SMTP_USER: ${{ secrets.SMTP_USER }}
           SMTP_PASS: ${{ secrets.SMTP_PASS }}
           SMS_TO_EMAIL: ${{ secrets.SMS_TO_EMAIL }}
+          SMS_SUBJECT: ${{ secrets.SMS_SUBJECT }}
+          # Inputs go through the environment, never into the script text:
+          # interpolating them directly would let a dispatch input run as shell.
+          INPUT_TODAY: ${{ inputs.today }}
+          INPUT_DRY_RUN: ${{ inputs.dry_run }}
+          EVENT_NAME: ${{ github.event_name }}
         run: |
-          python scripts/notify.py \
-            ${{ inputs.dry_run && '--dry-run' || '' }} \
-            ${{ inputs.today && format('--today {0}', inputs.today) || '' }}
+          args=()
+          if [ "$INPUT_DRY_RUN" = "true" ]; then args+=(--dry-run); fi
+          if [ -n "$INPUT_TODAY" ]; then args+=(--today "$INPUT_TODAY"); fi
+          if [ "$EVENT_NAME" = "schedule" ]; then args+=(--scheduled); fi
+          python scripts/notify.py "${args[@]}"
 
       - name: Record the run
-        # Committing the run state doubles as repo activity, which stops GitHub
-        # from auto-disabling this schedule after 60 quiet days.
-        if: ${{ always() && github.event_name == 'schedule' }}
+        # Committing the run record doubles as repository activity, which stops
+        # GitHub auto-disabling this schedule after 60 quiet days. It runs even
+        # when the send failed — that is exactly when the heartbeat matters.
+        if: ${{ (success() || failure()) && github.event_name == 'schedule' }}
+        env:
+          BRANCH: ${{ github.ref_name }}
         run: |
+          if [ -z "$(git status --porcelain data/notify-state.json)" ]; then
+            echo "Nothing to record."
+            exit 0
+          fi
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          if [ -n "$(git status --porcelain data/notify-state.json)" ]; then
-            git add data/notify-state.json
-            git commit -m "Record watering notification run [skip ci]"
-            git pull --rebase --autostash origin ${{ github.ref_name }}
-            git push
-          else
-            echo "Nothing to record."
-          fi
+          git add data/notify-state.json
+          git commit -m "Record watering notification run [skip ci]"
+          for attempt in 1 2 3; do
+            git pull --rebase origin "$BRANCH" && git push origin "HEAD:$BRANCH" && exit 0
+            echo "Push attempt $attempt failed; retrying…"
+            sleep $((attempt * 5))
+          done
+          echo "::warning::Could not push the run record. If the default branch is protected, allow github-actions[bot] to bypass it, or the daily schedule may be auto-disabled after 60 days."

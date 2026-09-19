@@ -53,16 +53,53 @@ CARRIER_GATEWAYS = {
 }
 
 MAX_SMS_CHARS = 1400
+# Carrier gateways choke on long or non-ASCII bodies (Verizon truncates near 160
+# and often mangles emoji), so the email route gets a plainer, shorter message.
+MAX_GATEWAY_CHARS = 300
+
+ASCII_SWAPS = {
+    "\u2014": "-", "\u2013": "-", "\u2022": "*", "\u2026": "...",
+    "\u201c": '"', "\u201d": '"', "\u2018": "'", "\u2019": "'",
+    "\u00b0": " deg", "\U0001f331": "", "\u00bd": "1/2", "\u00bc": "1/4", "\u00be": "3/4",
+}
+
+
+def to_ascii(text: str) -> str:
+    """Plain ASCII for carrier gateways, without dropping meaning."""
+    for src, dst in ASCII_SWAPS.items():
+        text = text.replace(src, dst)
+    plain = text.encode("ascii", "ignore").decode("ascii")
+    # Dropping a leading emoji must not leave the line starting with a space.
+    return "\n".join(line.strip() for line in plain.split("\n"))
+
+
+def zone(tz_name: str):
+    """The garden's timezone, or None (with a warning) when the name is wrong.
+
+    Runners are UTC, so silently falling back would shift the day boundary and
+    make the --scheduled hour guard compare the wrong clock.
+    """
+    try:
+        from zoneinfo import ZoneInfo
+
+        return ZoneInfo(tz_name)
+    except Exception:
+        print(
+            f"::warning::'{tz_name}' is not a known timezone name; using UTC instead. "
+            "Fix settings.timezone in data/plants.json (e.g. America/New_York).",
+            file=sys.stderr,
+        )
+        return None
 
 
 def local_today(tz_name: str) -> str:
     """Today's date in the garden's timezone (Actions runners are UTC)."""
-    try:
-        from zoneinfo import ZoneInfo
+    return datetime.now(zone(tz_name)).date().isoformat()
 
-        return datetime.now(ZoneInfo(tz_name)).date().isoformat()
-    except Exception:
-        return datetime.now().date().isoformat()
+
+def local_hour(tz_name: str) -> int:
+    """Current hour (0-23) in the garden's timezone."""
+    return datetime.now(zone(tz_name)).hour
 
 
 def load_data(path: Path) -> dict:
@@ -85,38 +122,77 @@ def one_line(text, limit=90):
     return flat if len(flat) <= limit else flat[: limit - 1].rstrip() + "…"
 
 
-def build_message(rows, today: str, site_url: str = "") -> str:
-    """One text covering everything due, with the care notes that matter."""
+def build_message(rows, today: str, site_url: str = "", transport: str = "twilio") -> str:
+    """One text covering everything due, with the care notes that matter.
+
+    Carrier gateways cut messages off around 160 characters, so rather than
+    truncating mid-sentence the message is rebuilt at decreasing levels of
+    detail until it fits, and the link home is always kept.
+    """
     if not rows:
         return ""
 
-    header = f"🌱 Plant watering — {today}"
-    lines = [header]
+    gateway = transport == "email"
+    limit = MAX_GATEWAY_CHARS if gateway else MAX_SMS_CHARS
+
+    # Richest first: 2 = everything, 1 = drop location, 0 = name + amount only.
+    for detail in (2, 1, 0):
+        message = _render(rows, today, site_url, gateway, detail)
+        if len(message) <= limit:
+            return message
+
+    # Still too long: keep as many whole plants as fit, and say how many are left.
+    for keep in range(len(rows) - 1, 0, -1):
+        message = _render(rows[:keep], today, site_url, gateway, 0, more=len(rows) - keep)
+        if len(message) <= limit:
+            return message
+
+    return trim(_render(rows[:1], today, site_url, gateway, 0, more=len(rows) - 1), limit)
+
+
+def _render(rows, today, site_url, gateway, detail, more=0):
+    lines = [f"\U0001f331 Plant watering — {today}"]
 
     for row in rows:
         plant = row["plant"]
-        name = plant.get("name") or "Unnamed plant"
         bits = []
-        if row["status"] == "overdue":
+        if row.get("headsUp"):
+            days = row["daysUntil"]
+            bits.append(f"in {days} day{'s' if days != 1 else ''}")
+        elif row["status"] == "overdue":
             days = row["daysOverdue"]
             bits.append(f"OVERDUE {days} day{'s' if days != 1 else ''}")
         bits.append(sched.amount_text(plant))
 
         water = plant.get("water") or {}
-        if water.get("method"):
-            bits.append(one_line(water["method"], 70))
-        if plant.get("location"):
+        if detail >= 1 and water.get("method"):
+            bits.append(one_line(water["method"], 40 if gateway else 70))
+        if detail >= 2 and plant.get("location"):
             bits.append(f"({one_line(plant['location'], 40)})")
 
+        name = plant.get("name") or "Unnamed plant"
         lines.append(f"• {name}: " + " — ".join(b for b in bits if b))
 
+    if more:
+        lines.append(f"• +{more} more — see the site")
     if site_url:
         lines.append(f"Log it: {site_url}")
 
     message = "\n".join(lines)
-    if len(message) > MAX_SMS_CHARS:
-        message = message[: MAX_SMS_CHARS - 1].rstrip() + "…"
-    return message
+    return to_ascii(message) if gateway else message
+
+
+def trim(message: str, limit: int) -> str:
+    """Last-resort cut: on a line or word boundary, never mid-word."""
+    if len(message) <= limit:
+        return message
+    cut = message[: limit - 1]
+    for sep in ("\n", " "):
+        idx = cut.rfind(sep)
+        if idx > limit * 0.6:
+            cut = cut[:idx]
+            break
+    return cut.rstrip() + "+"
 
 
 def send_twilio(message: str, cfg: dict) -> None:
@@ -207,6 +283,22 @@ def write_state(path: Path, state: dict) -> None:
         fh.write("\n")
 
 
+def heartbeat(today: str, extra=None, enabled: bool = True) -> None:
+    """Record that the workflow ran.
+
+    Committing this file is what keeps GitHub from auto-disabling the schedule
+    after 60 quiet days, so it must be written whatever happens to the send --
+    a misconfigured or failing notifier is exactly when the heartbeat matters.
+    """
+    if not enabled:
+        return
+    state = read_state(STATE_FILE)
+    state["lastRun"] = today
+    if extra:
+        state.update(extra)
+    write_state(STATE_FILE, state)
+
+
 def main(argv=None) -> int:
     parser = argparse.ArgumentParser(description="Text me which plants need water today.")
     parser.add_argument("--dry-run", action="store_true", help="print the message, send nothing")
@@ -214,6 +306,11 @@ def main(argv=None) -> int:
     parser.add_argument("--data", default=str(DATA_FILE), help="path to plants.json")
     parser.add_argument("--force", action="store_true", help="send even if nothing is due")
     parser.add_argument("--no-state", action="store_true", help="do not write notify-state.json")
+    parser.add_argument(
+        "--scheduled",
+        action="store_true",
+        help="cron mode: do nothing unless the local hour matches settings.notifyHour",
+    )
     args = parser.parse_args(argv)
 
     data = load_data(Path(args.data))
@@ -223,68 +320,127 @@ def main(argv=None) -> int:
     if sched.parse_iso(today) is None:
         raise SystemExit(f"--today must be YYYY-MM-DD, got {today!r}")
 
-    rows = sched.due_plants(data.get("plants"), today)
+    # Dry runs must not touch the working tree, and must not consume the day's
+    # heartbeat -- otherwise the real scheduled run later finds nothing to commit.
+    keep_state = not args.no_state and not args.dry_run
+
+    # GitHub cron only speaks UTC, so the workflow fires on both candidate hours
+    # (one is 8am in summer, the other in winter) and this guard decides which
+    # run is the real one. It deliberately does not demand an exact hour match:
+    # GitHub's scheduler is routinely 10-60 minutes late, and a strict match
+    # would silently drop the whole day. Instead: send once the local hour has
+    # arrived, and never twice on the same date.
+    if args.scheduled and not args.today:
+        want = settings.get("notifyHour")
+        want = int(want) if str(want).strip().lstrip("-").isdigit() else 8
+        want = max(0, min(23, want))
+        have = local_hour(tz_name)
+        previous = read_state(STATE_FILE).get("lastNotified")
+        if have < want:
+            # Deliberately no state write: with an hourly schedule that would
+            # rewrite the file (and commit) every hour instead of once a day.
+            print(f"It is {have}:00 in {tz_name}; the text goes out at {want}:00. Too early.")
+            return 0
+        if previous == today:
+            print(f"Already handled {today} - not sending twice.")
+            return 0
+
+    ahead = settings.get("remindAheadDays")
+    try:
+        ahead = max(0, min(14, int(ahead)))
+    except (TypeError, ValueError):
+        ahead = 0
+
+    plants = data.get("plants") or []
+    rows = sched.due_plants(plants, today)
+    if ahead:
+        due_ids = {id(r["plant"]) for r in rows}
+        for plant in plants:
+            if plant.get("archived") or id(plant) in due_ids:
+                continue
+            st = sched.status_for(plant, today)
+            if 0 < st["daysUntil"] <= ahead:
+                rows.append({"plant": plant, "headsUp": True, **st})
+        rows.sort(key=lambda r: (r["dueDate"], (r["plant"].get("name") or "").lower()))
+
     site_url = (settings.get("siteUrl") or os.environ.get("SITE_URL") or "").strip()
-    message = build_message(rows, today, site_url)
+    if site_url and not site_url.endswith("#today"):
+        site_url = site_url.rstrip("/") + "/#today"
+
+    kind, cfg = resolve_transport(os.environ)
+    message = build_message(rows, today, site_url, kind if kind != "none" else "twilio")
+    active = len([p for p in plants if not p.get("archived")])
+    needing = len([r for r in rows if not r.get("headsUp")])
 
     print(f"Date: {today} ({tz_name})")
-    print(f"Plants tracked: {len([p for p in data.get('plants', []) if not p.get('archived')])}")
-    print(f"Needing water: {len(rows)}")
+    print(f"Plants tracked: {active}")
+    print(f"Needing water: {needing}" + (f" (+{len(rows) - needing} heads-up)" if len(rows) > needing else ""))
 
     summary_path = os.environ.get("GITHUB_STEP_SUMMARY")
     if summary_path:
         with open(summary_path, "a", encoding="utf-8") as fh:
-            fh.write(f"### 🌱 Watering check {today}\n\n")
-            fh.write(f"{len(rows)} plant(s) need water.\n\n")
+            fh.write(f"### \U0001f331 Watering check {today}\n\n")
+            fh.write(f"{needing} plant(s) need water.\n\n")
             if message:
                 fh.write("```\n" + message + "\n```\n")
 
+    claimed = {"lastNotified": today} if args.scheduled else {}
+
     if not rows and not args.force:
-        print("Nothing due today — no text sent.")
-        if not args.no_state:
-            state = read_state(STATE_FILE)
-            state.update({"lastRun": today, "lastRunDue": 0})
-            write_state(STATE_FILE, state)
+        print("Nothing due today - no text sent.")
+        heartbeat(today, {"lastRunDue": 0, **claimed}, keep_state)
         return 0
 
     if not message:
-        message = f"🌱 Plant watering — {today}: nothing is due today."
+        message = f"\U0001f331 Plant watering \u2014 {today}: nothing is due today."
 
     print("---- message ----")
     print(message)
     print("-----------------")
 
-    kind, cfg = resolve_transport(os.environ)
     if args.dry_run:
-        print(f"Dry run — would send via: {kind}")
+        print(f"Dry run - would send via: {kind}")
         return 0
 
-    if kind == "twilio":
-        send_twilio(message, cfg)
-    elif kind == "email":
-        send_email_sms(message, cfg)
-    else:
+    if kind == "none":
+        # Exit 0 on purpose: a repo whose secrets are not set up yet should not
+        # mail the owner a failed workflow every single morning. The step summary
+        # and this notice say what to do instead.
         print(
-            "No SMS transport configured. Add either the Twilio secrets "
-            "(TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, TWILIO_FROM, SMS_TO) or the "
-            "email-to-SMS secrets (SMTP_HOST, SMTP_USER, SMTP_PASS, SMS_TO_EMAIL). "
-            "See README.md.",
+            "\n*** No SMS transport configured, so no text was sent. ***\n"
+            "Add either the Twilio secrets (TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, "
+            "TWILIO_FROM, SMS_TO) or the free email-to-SMS secrets (SMTP_HOST, "
+            "SMTP_USER, SMTP_PASS, SMS_TO_EMAIL) under Settings > Secrets and "
+            "variables > Actions. See README.md, section 3.",
             file=sys.stderr,
         )
-        return 2
+        if summary_path:
+            with open(summary_path, "a", encoding="utf-8") as fh:
+                fh.write("\n> \u26a0\ufe0f **No SMS transport configured** - no text was sent. "
+                         "Add the secrets from README section 3.\n")
+        heartbeat(today, {"lastRunDue": needing, "transport": "none", **claimed}, keep_state)
+        return 0
 
-    if not args.no_state:
-        state = read_state(STATE_FILE)
-        state.update(
-            {
-                "lastRun": today,
-                "lastSent": today,
-                "lastRunDue": len(rows),
-                "lastPlants": [r["plant"].get("name") for r in rows],
-                "transport": kind,
-            }
-        )
-        write_state(STATE_FILE, state)
+    try:
+        if kind == "twilio":
+            send_twilio(message, cfg)
+        else:
+            send_email_sms(message, cfg)
+    finally:
+        # The heartbeat records the attempt even when delivery blows up.
+        heartbeat(today, {"lastRunDue": needing, "transport": kind, **claimed}, keep_state)
+
+    heartbeat(
+        today,
+        {
+            "lastSent": today,
+            "lastRunDue": needing,
+            "lastPlants": [r["plant"].get("name") for r in rows],
+            "transport": kind,
+            **claimed,
+        },
+        keep_state,
+    )
     return 0
 
 

@@ -33,7 +33,13 @@ function esc(value) {
     .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 }
 
-function today() { return todayISO(); }
+/**
+ * Today, in the garden's timezone. Using the same zone as the notifier keeps
+ * the site and the text message from disagreeing about what day it is.
+ */
+function today() {
+  return todayISO(new Date(), (store.doc.settings && store.doc.settings.timezone) || null);
+}
 
 function prettyDate(iso, opts = { weekday: 'short', month: 'short', day: 'numeric' }) {
   const d = parseISO(iso);
@@ -129,7 +135,7 @@ function nextUpText(rows) {
   return `${r.plant.name}, ${relativeDay(r.dueDate)}.`;
 }
 
-function careItem(row, actionable) {
+function careItem(row, actionable, waterDate = null) {
   const p = row.plant;
   const src = photoSrc(p);
   const thumb = src
@@ -146,7 +152,7 @@ function careItem(row, actionable) {
         <div class="care-instructions">💧 ${instructions}</div>
       </div>
       <div class="care-actions">
-        ${actionable ? `<button class="btn primary small" data-water="${esc(p.id)}">Mark watered</button>` : ''}
+        ${actionable ? `<button class="btn primary small" data-water="${esc(p.id)}"${waterDate ? ` data-water-date="${esc(waterDate)}"` : ''}>Mark watered${waterDate && waterDate !== today() ? ` on ${esc(prettyDate(waterDate, { month: 'short', day: 'numeric' }))}` : ''}</button>` : ''}
         <button class="btn small ghost" data-detail="${esc(p.id)}">Details</button>
       </div>
     </article>`;
@@ -287,7 +293,9 @@ function renderCalDetail(map) {
       <h3>${esc(prettyDate(ui.calSelected, { weekday: 'long', month: 'long', day: 'numeric' }))} <span class="muted">(${esc(relativeDay(ui.calSelected))})</span></h3>
       ${list.length ? `<div class="care-list">${list.map((e) => {
         const row = { plant: e.plant, ...statusFor(e.plant, t) };
-        return careItem(row, isToday || daysBetween(t, ui.calSelected) < 0);
+        const past = daysBetween(t, ui.calSelected) < 0;
+        // A past day logs the watering on that day, not today.
+        return careItem(row, isToday || past, past ? ui.calSelected : null);
       }).join('')}</div>` : '<p class="muted">Nothing scheduled for this day.</p>'}
     </div>`;
 }
@@ -338,7 +346,9 @@ function openDetail(id) {
       ${fact('Water', `Every ${p.water.intervalDays} days — ${amountText(p)}`)}
       ${fact('Winter', p.water.winterIntervalDays ? `Every ${p.water.winterIntervalDays} days (Nov–Feb)` : '')}
       ${fact('How', p.water.method)}
-      ${fact('Next due', `${prettyDate(st.dueDate)} (${relativeDay(st.dueDate)})`)}
+      ${fact('Next watering', st.status === 'overdue'
+        ? `Was due ${prettyDate(st.dueDate)} — ${st.daysOverdue} day${st.daysOverdue === 1 ? '' : 's'} ago. Water it today.`
+        : `${prettyDate(st.dueDate)} (${relativeDay(st.dueDate)})`)}
       ${fact('Last watered', p.lastWatered ? `${prettyDate(p.lastWatered)} (${relativeDay(p.lastWatered)})` : 'never recorded')}
       ${fact('Sun', p.sun)}
       ${fact('Soil', p.soil)}
@@ -391,6 +401,7 @@ function fillForm(plant) {
   set('#f-warningSigns', plant ? plant.warningSigns : '');
   set('#f-notes', plant ? plant.notes : '');
   $('#f-archived').checked = plant ? Boolean(plant.archived) : false;
+  $('#f-lastWatered').max = today();
   $('#f-photo-healthy').value = '';
   $('#f-photo-unhealthy').value = '';
   $('#add-heading').textContent = plant ? `Edit ${plant.name}` : 'Add a Plant';
@@ -410,9 +421,15 @@ function renderThumbs() {
   });
 }
 
+/** Intervals must be whole days 1-365, or the site and the text could differ. */
+function wholeDays(value) {
+  return Number.isFinite(value) && value >= 1 && value <= 365 && Math.floor(value) === value;
+}
+
 function clearFormErrors() {
   $$('.error[data-error-for]').forEach((el) => { el.hidden = true; });
-  ['#f-name', '#f-intervalDays'].forEach((id) => $(id).removeAttribute('aria-invalid'));
+  ['#f-name', '#f-intervalDays', '#f-winterIntervalDays', '#f-lastWatered']
+    .forEach((id) => $(id).removeAttribute('aria-invalid'));
 }
 
 function showFieldError(id) {
@@ -425,13 +442,20 @@ function readForm() {
   clearFormErrors();
   const name = $('#f-name').value.trim();
   const interval = Number($('#f-intervalDays').value);
+  const lastWatered = $('#f-lastWatered').value;
   let ok = true;
   if (!name) { showFieldError('f-name'); ok = false; }
-  if (!Number.isFinite(interval) || interval < 1 || interval > 365 || Math.floor(interval) !== interval) {
-    showFieldError('f-intervalDays'); ok = false;
+  if (lastWatered && daysBetween(today(), lastWatered) > 0) {
+    showFieldError('f-lastWatered'); ok = false;
+  }
+  if (!wholeDays(interval)) { showFieldError('f-intervalDays'); ok = false; }
+  const winter = $('#f-winterIntervalDays').value.trim();
+  if (winter !== '' && !wholeDays(Number(winter))) {
+    showFieldError('f-winterIntervalDays'); ok = false;
   }
   if (!ok) {
-    $((!name) ? '#f-name' : '#f-intervalDays').focus();
+    const firstBad = $('[aria-invalid="true"]');
+    if (firstBad) firstBad.focus();
     return null;
   }
 
@@ -495,6 +519,43 @@ async function handlePhotoPick(kind, input) {
   }
 }
 
+/* ── Publishing ──────────────────────────────────────── */
+
+const AUTO_KEY = 'plantcare.autopublish.v1';
+
+function autoPublishEnabled() {
+  try { return window.localStorage.getItem(AUTO_KEY) === '1'; } catch { return false; }
+}
+function setAutoPublish(on) {
+  try { window.localStorage.setItem(AUTO_KEY, on ? '1' : '0'); } catch { /* ignore */ }
+}
+
+/**
+ * Push straight to GitHub after a change, so the daily text never works from
+ * stale data. Debounced, because watering four plants in a row should be one
+ * commit, not four.
+ */
+function autoPublish() {
+  if (!autoPublishEnabled() || !connection.isReady()) { renderPublishBar(); return; }
+  clearTimeout(autoPublish.timer);
+  autoPublish.timer = setTimeout(() => { doPublish({ silent: true }); }, 2500);
+  renderPublishBar();
+}
+
+function renderPublishBar() {
+  const bar = $('#publish-bar');
+  if (!bar) return;
+  if (!store.dirty) { bar.hidden = true; return; }
+  const n = store.plants().length;
+  const auto = autoPublishEnabled() && connection.isReady();
+  $('#publish-bar-text').textContent = auto
+    ? 'Saving your changes to GitHub…'
+    : `Unpublished changes — the daily text still uses the last published version (${n} plant${n === 1 ? '' : 's'} here).`;
+  $('#publish-bar-btn').hidden = auto;
+  $('#publish-bar-help').hidden = auto;
+  bar.hidden = false;
+}
+
 /* ── Settings ────────────────────────────────────────── */
 
 function renderSettings() {
@@ -502,9 +563,21 @@ function renderSettings() {
   $('#s-owner').value = cfg.owner;
   $('#s-repo').value = cfg.repo;
   $('#s-branch').value = cfg.branch;
+  $('#s-dir').value = cfg.dir || '';
   $('#s-token').value = cfg.token ? '•'.repeat(12) : '';
+  $('#s-autopublish').checked = autoPublishEnabled();
   $('#s-timezone').value = store.doc.settings.timezone || '';
   $('#s-siteurl').value = store.doc.settings.siteUrl || '';
+  $('#s-remindahead').value = store.doc.settings.remindAheadDays || 0;
+
+  const hour = $('#s-notifyhour');
+  if (!hour.options.length) {
+    for (let h = 0; h < 24; h += 1) {
+      const label = new Date(2026, 0, 1, h).toLocaleTimeString(undefined, { hour: 'numeric' });
+      hour.append(new Option(label, String(h)));
+    }
+  }
+  hour.value = String(store.doc.settings.notifyHour ?? 8);
   renderSyncState();
 }
 
@@ -526,38 +599,88 @@ function renderSyncState() {
   const tokenBox = $('#token-state');
   if (tokenBox) {
     const ready = connection.isReady();
-    tokenBox.className = `sync-state ${ready ? 'clean' : ''}`;
-    tokenBox.innerHTML = `<span class="dot"></span>${ready ? 'Token saved in this browser — publishing is available.' : 'No token saved yet. You can still use Download / Import below.'}`;
+    const days = connection.daysUntilExpiry();
+    let note = ready
+      ? 'Token saved in this browser — publishing is available.'
+      : 'No token saved yet. You can still use Download / Import above.';
+    let cls = ready ? 'clean' : '';
+    if (ready && days !== null) {
+      if (days <= 0) { note = 'This token has expired — create a new one and paste it here.'; cls = 'bad'; }
+      else if (days <= 7) { note += ` Expires in ${days} day${days === 1 ? '' : 's'}.`; cls = 'dirty'; }
+      else { note += ` Expires in ${days} days.`; }
+    }
+    tokenBox.className = `sync-state ${cls}`;
+    tokenBox.innerHTML = `<span class="dot"></span>${esc(note)}`;
   }
 }
 
-async function doPublish() {
+async function doPublish({ silent = false } = {}) {
   const btn = $('#btn-publish');
   const cfg = connection.load();
   if (!connection.isReady()) {
-    flash('Add your repository details and a token first (below).', 'warn', 6000);
-    $('#s-owner').focus();
-    return;
+    if (!silent) {
+      flash('Add your repository details and a token first (below).', 'warn', 6000);
+      setView('settings');
+      $('#s-owner').focus();
+    }
+    return false;
   }
-  btn.disabled = true;
+  if (doPublish.running) return false;
+  doPublish.running = true;
+
   const original = btn.textContent;
+  btn.disabled = true;
+  const narrate = (msg) => {
+    btn.textContent = msg;
+    if ($('#publish-bar-text')) $('#publish-bar-text').textContent = msg;
+  };
+
   try {
-    const result = await publish(cfg, store.doc, (msg) => { btn.textContent = msg; });
+    const result = await publish(cfg, store.doc, narrate);
     store.doc = result.doc;
     store.dirty = false;
-    store.persist(false);
-    flash(`Published to GitHub — ${result.photosUploaded} photo${result.photosUploaded === 1 ? '' : 's'} uploaded. The daily text will use this from now on.`, 'info', 6000);
+    store.cache();
+    const bits = [`Published to GitHub`];
+    if (result.photosUploaded) bits.push(`${result.photosUploaded} photo${result.photosUploaded === 1 ? '' : 's'} uploaded`);
+    if (result.photosRemoved) bits.push(`${result.photosRemoved} unused photo${result.photosRemoved === 1 ? '' : 's'} tidied up`);
+    flash(`${bits.join(' — ')}. The daily text will use this from now on.`, 'info', 5000);
+    if (result.unreadablePhotos && result.unreadablePhotos.length) {
+      flash(`Some photos could not be uploaded (${result.unreadablePhotos.join(', ')}) — they are still here, but try adding them again.`, 'warn', 12000);
+    }
+    warnAboutTokenExpiry();
+    return true;
   } catch (err) {
-    flash(err.message, 'error', 12000);
+    flash(`Could not publish: ${err.message}`, 'error', 14000);
+    return false;
   } finally {
+    doPublish.running = false;
     btn.disabled = false;
     btn.textContent = original;
-    renderSyncState();
+    render();
+  }
+}
+
+function warnAboutTokenExpiry() {
+  const days = connection.daysUntilExpiry();
+  if (days === null) return;
+  if (days <= 0) {
+    flash('Your GitHub token has expired. Create a new one and paste it into Settings, or publishing will stop working.', 'error', 15000);
+  } else if (days <= 7) {
+    flash(`Your GitHub token expires in ${days} day${days === 1 ? '' : 's'}. Create a new one in Settings to keep publishing.`, 'warn', 12000);
   }
 }
 
 function downloadJson() {
-  const blob = new Blob([store.toJSON()], { type: 'application/json' });
+  const json = store.toJSON();
+  const mb = json.length / (1024 * 1024);
+  if (mb > 1) {
+    const ok = window.confirm(
+      `This file is about ${mb.toFixed(1)} MB because the photos are stored inside it. `
+      + 'Publishing with a token stores photos as separate image files instead, which is much tidier. Download anyway?',
+    );
+    if (!ok) return;
+  }
+  const blob = new Blob([json], { type: 'application/json' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
@@ -577,14 +700,18 @@ function render() {
   else if (ui.view === 'calendar') renderCalendar();
   else if (ui.view === 'settings') renderSettings();
   renderSyncState();
-  const dirtyTabs = $('.tab[data-view="settings"]');
-  if (dirtyTabs) dirtyTabs.textContent = store.dirty ? 'Settings •' : 'Settings';
+  renderPublishBar();
 }
 
 /* ── events ──────────────────────────────────────────── */
 
 function wire() {
-  $$('.tab').forEach((tab) => tab.addEventListener('click', () => setView(tab.dataset.view)));
+  $$('.tab').forEach((tab) => tab.addEventListener('click', () => {
+    // Arriving at the form from the tab always means "add a new plant".
+    // Without this, the Edit state lingers and Save would overwrite that plant.
+    if (tab.dataset.view === 'add' && ui.editingId) fillForm(null);
+    setView(tab.dataset.view);
+  }));
 
   window.addEventListener('popstate', () => {
     setView(window.location.hash.slice(1) || 'today', { push: false });
@@ -594,15 +721,31 @@ function wire() {
   document.addEventListener('click', (event) => {
     const el = event.target.closest('[data-water],[data-detail],[data-edit],[data-delete],[data-undo],[data-go],[data-day],[data-zoom],[data-remove-photo]');
     if (!el) return;
+    try {
+      handleAction(el);
+    } catch (err) {
+      // A save that could not be stored must say so, not fail silently.
+      flash(err.message, 'error', 12000);
+      render();
+    }
+  });
+
+  function handleAction(el) {
 
     if (el.dataset.water) {
-      const plant = store.markWatered(el.dataset.water, today());
-      if (plant) flash(`${plant.name} watered today. Next: ${prettyDate(statusFor(plant, today()).dueDate)}.`);
+      const when = el.dataset.waterDate || today();
+      const plant = store.markWatered(el.dataset.water, when);
+      if (plant) {
+        const when_ = when === today() ? 'today' : `on ${prettyDate(when)}`;
+        flash(`${plant.name} watered ${when_}. Next: ${prettyDate(statusFor(plant, today()).dueDate)}.`);
+        autoPublish();
+      }
       $('#plant-dialog').close();
       render();
     } else if (el.dataset.undo) {
       const plant = store.undoWatered(el.dataset.undo);
       flash(plant ? `Undid the last watering for ${plant.name}.` : 'Nothing to undo.');
+      if (plant) autoPublish();
       $('#plant-dialog').close();
       render();
     } else if (el.dataset.detail) {
@@ -615,6 +758,7 @@ function wire() {
       const plant = store.get(el.dataset.delete);
       if (plant && window.confirm(`Delete ${plant.name}? This cannot be undone.`)) {
         store.remove(plant.id);
+        autoPublish();
         $('#plant-dialog').close();
         flash(`${plant.name} deleted.`);
         render();
@@ -633,7 +777,7 @@ function wire() {
       ui.formPhotos[kind].splice(Number(index), 1);
       renderThumbs();
     }
-  });
+  }
 
   // Garden controls
   $('#garden-search').addEventListener('input', renderGarden);
@@ -660,6 +804,7 @@ function wire() {
     const wasEditing = Boolean(ui.editingId);
     try {
       const saved = store.upsert(data);
+      autoPublish();
       fillForm(null);
       flash(`${saved.name} ${wasEditing ? 'updated' : 'added'}. Remember to Publish so the daily text knows about it.`, 'info', 6000);
       setView('garden');
@@ -668,8 +813,15 @@ function wire() {
     }
   });
 
+  // Publish bar
+  $('#publish-bar-btn').addEventListener('click', () => doPublish());
+  $('#publish-bar-help').addEventListener('click', () => {
+    flash('Your changes live in this browser until they are published to GitHub. The daily text reads the published copy, so publish after watering or adding a plant.', 'info', 9000);
+    setView('settings');
+  });
+
   // Settings
-  $('#btn-publish').addEventListener('click', doPublish);
+  $('#btn-publish').addEventListener('click', () => doPublish());
   $('#btn-download').addEventListener('click', downloadJson);
   $('#btn-import').addEventListener('click', () => $('#import-file').click());
   $('#import-file').addEventListener('change', async (event) => {
@@ -702,8 +854,11 @@ function wire() {
       owner: $('#s-owner').value.trim(),
       repo: $('#s-repo').value.trim(),
       branch: $('#s-branch').value.trim() || 'main',
+      dir: $('#s-dir').value.trim().replace(/^\/+|\/+$/g, ''),
       // Leaving the masked placeholder alone keeps the stored token.
       token: /^•+$/.test(typed) ? current.token : typed.trim(),
+      // A pasted token invalidates whatever expiry we knew about.
+      ...(/^•+$/.test(typed) ? {} : { tokenExpiry: '' }),
     };
     connection.save(cfg);
     $('#s-token').value = cfg.token ? '•'.repeat(12) : '';
@@ -714,8 +869,13 @@ function wire() {
     const cfg = connection.load();
     if (!connection.isReady()) { flash('Fill in owner, repo, branch and token, then save.', 'warn'); return; }
     try {
-      const repo = await testConnection(cfg);
-      flash(`Connected to ${repo.full_name} with write access.`);
+      const { repo, dataFound, path } = await testConnection(cfg);
+      if (dataFound) {
+        flash(`Connected to ${repo.full_name} with write access — found ${path}.`);
+      } else {
+        flash(`Connected to ${repo.full_name} with write access, but there is no ${path} there yet. Publishing will create it — if that is the wrong place, check the folder field.`, 'warn', 12000);
+      }
+      warnAboutTokenExpiry();
     } catch (err) {
       flash(err.message, 'error', 10000);
     }
@@ -726,17 +886,41 @@ function wire() {
     flash('Token removed from this browser.');
     renderSyncState();
   });
+  $('#s-autopublish').addEventListener('change', (event) => {
+    if (event.target.checked && !connection.isReady()) {
+      event.target.checked = false;
+      flash('Save your GitHub token first — automatic publishing needs it.', 'warn', 6000);
+      return;
+    }
+    setAutoPublish(event.target.checked);
+    flash(event.target.checked
+      ? 'Changes will be published to GitHub automatically.'
+      : 'Automatic publishing is off — use the Publish button.');
+    if (event.target.checked && store.dirty) autoPublish();
+    render();
+  });
   $('#btn-save-settings').addEventListener('click', () => {
+    const tz = $('#s-timezone').value.trim() || 'America/New_York';
+    try {
+      new Intl.DateTimeFormat('en-US', { timeZone: tz });
+    } catch {
+      flash(`"${tz}" is not a timezone name. Use something like America/New_York.`, 'error', 8000);
+      return;
+    }
     store.setSettings({
-      timezone: $('#s-timezone').value.trim() || 'America/New_York',
+      timezone: tz,
       siteUrl: $('#s-siteurl').value.trim(),
+      notifyHour: Number($('#s-notifyhour').value),
+      remindAheadDays: Number($('#s-remindahead').value) || 0,
     });
     flash('Garden settings saved. Publish to apply them to the daily text.');
+    autoPublish();
     render();
   });
 
   window.addEventListener('beforeunload', (event) => {
-    if (store.dirty && connection.isReady()) {
+    // Unpublished work only exists in this browser — say so before it closes.
+    if (store.dirty) {
       event.preventDefault();
       event.returnValue = '';
     }
@@ -745,8 +929,16 @@ function wire() {
 
 /* ── boot ────────────────────────────────────────────── */
 
+function registerServiceWorker() {
+  if (!('serviceWorker' in navigator)) return;
+  // file:// and some embedded webviews reject this; it is an enhancement only.
+  if (!window.isSecureContext) return;
+  navigator.serviceWorker.register('sw.js').catch(() => { /* offline support is optional */ });
+}
+
 async function boot() {
   wire();
+  registerServiceWorker();
   fillForm(null);
   await store.init();
   if (store.loadError) flash(store.loadError, 'warn', 8000);

@@ -37,6 +37,9 @@ def python_results():
                 "occurrences": sched.occurrences_in_range(
                     plant, today, sched.add_days(today, 120), today
                 ),
+                "calendar": sched.occurrences_in_range(
+                    plant, sched.add_days(today, -35), sched.add_days(today, 35), today
+                ),
                 "amount": sched.amount_text(plant),
                 "interval": sched.interval_on(plant, today),
             }
@@ -127,6 +130,94 @@ class TestSchedule(unittest.TestCase):
         self.assertEqual([r["plant"]["name"] for r in rows], ["late", "just due"])
 
 
+class TestOverdueScheduling(unittest.TestCase):
+    """An overdue plant must be on today's calendar, not only in the past."""
+
+    def setUp(self):
+        self.plant = {"name": "Ivy", "water": {"intervalDays": 7}, "lastWatered": "2026-08-20"}
+
+    def test_today_is_included_when_overdue(self):
+        got = sched.occurrences_in_range(self.plant, "2026-09-01", "2026-09-30", "2026-09-19")
+        self.assertIn("2026-09-19", got, "an overdue plant must show up today")
+
+    def test_missed_dates_are_still_visible(self):
+        got = sched.occurrences_in_range(self.plant, "2026-09-01", "2026-09-30", "2026-09-19")
+        self.assertIn("2026-09-03", got)
+        self.assertIn("2026-09-10", got)
+
+    def test_future_series_restarts_from_today(self):
+        got = sched.occurrences_in_range(self.plant, "2026-09-19", "2026-10-10", "2026-09-19")
+        self.assertEqual(got, ["2026-09-19", "2026-09-26", "2026-10-03", "2026-10-10"])
+
+    def test_on_time_plant_is_unaffected(self):
+        p = {"name": "OK", "water": {"intervalDays": 7}, "lastWatered": "2026-09-17"}
+        self.assertEqual(
+            sched.occurrences_in_range(p, "2026-09-01", "2026-09-30", "2026-09-19"),
+            ["2026-09-24"],
+        )
+
+    def test_never_watered_plant_is_due_today_only_once(self):
+        p = {"name": "New", "water": {"intervalDays": 4}}
+        got = sched.occurrences_in_range(p, "2026-09-01", "2026-09-30", "2026-09-19")
+        self.assertEqual(got, ["2026-09-19", "2026-09-23", "2026-09-27"])
+
+
+class TestStrictDates(unittest.TestCase):
+    """The browser's regex and Python's parser must accept exactly the same set."""
+
+    def test_only_canonical_dates_are_accepted(self):
+        for bad in ["20260905", "2026-09-05T08:00:00", "2026-9-5", "2026-09-05Z", " ", "2026-13-01"]:
+            with self.subTest(value=bad):
+                self.assertIsNone(sched.parse_iso(bad))
+        self.assertIsNotNone(sched.parse_iso("2026-09-05"))
+
+    def test_rounding_is_half_up_like_javascript(self):
+        self.assertEqual(sched.interval_on({"water": {"intervalDays": 10.5}}, "2026-06-01"), 11)
+        self.assertEqual(sched.interval_on({"water": {"intervalDays": 2.5}}, "2026-06-01"), 3)
+        self.assertEqual(sched.interval_on({"water": {"intervalDays": 3.5}}, "2026-06-01"), 4)
+
+
+class TestNotifyHour(unittest.TestCase):
+    """The hourly workflow must send once a day, at the hour the user picked."""
+
+    def _run_day(self, notify_hour, due=True):
+        import contextlib
+        import io
+        import tempfile
+        from unittest import mock
+
+        data = {
+            "settings": {"timezone": "America/New_York", "notifyHour": notify_hour},
+            "plants": [{
+                "id": "x", "name": "Fern", "water": {"intervalDays": 3},
+                "lastWatered": "2026-09-01" if due else "2026-09-23",
+            }],
+        }
+        sends = []
+        with tempfile.TemporaryDirectory() as tmp:
+            data_path = Path(tmp) / "plants.json"
+            data_path.write_text(json.dumps(data), encoding="utf-8")
+            state_path = Path(tmp) / "state.json"
+            with mock.patch.object(notify, "STATE_FILE", state_path):
+                for hour in range(24):
+                    with mock.patch.object(notify, "local_hour", return_value=hour), \
+                         mock.patch.object(notify, "local_today", return_value="2026-09-24"):
+                        buf = io.StringIO()
+                        with contextlib.redirect_stdout(buf), contextlib.redirect_stderr(buf):
+                            notify.main(["--scheduled", "--data", str(data_path)])
+                        if "---- message ----" in buf.getvalue():
+                            sends.append(hour)
+        return sends
+
+    def test_sends_once_at_the_chosen_hour(self):
+        for hour in (0, 6, 8, 13, 20, 23):
+            with self.subTest(notifyHour=hour):
+                self.assertEqual(self._run_day(hour), [hour])
+
+    def test_quiet_day_still_sends_nothing(self):
+        self.assertEqual(self._run_day(8, due=False), [])
+
+
 class TestMessage(unittest.TestCase):
     def setUp(self):
         self.rows = sched.due_plants(
@@ -177,6 +268,35 @@ class TestMessage(unittest.TestCase):
             "2026-09-19",
         )
         self.assertIn("OVERDUE 1 day —", notify.build_message(rows, "2026-09-19"))
+
+    def test_gateway_message_is_ascii_and_short(self):
+        many = [
+            {"name": f"Plant {i}", "water": {"intervalDays": 1, "amountMl": 250,
+                                             "amountText": "one cup", "method": "Soak it well and drain"},
+             "location": "Kitchen windowsill", "lastWatered": "2026-09-01"}
+            for i in range(8)
+        ]
+        rows = sched.due_plants(many, "2026-09-19")
+        msg = notify.build_message(rows, "2026-09-19", "https://example.com/#today", "email")
+        self.assertLessEqual(len(msg), notify.MAX_GATEWAY_CHARS)
+        self.assertTrue(msg.isascii(), f"gateway message must be ASCII: {msg!r}")
+        self.assertIn("https://example.com/#today", msg)
+        self.assertNotIn("\u2014", msg)
+        self.assertFalse(any(line.startswith(" ") for line in msg.split("\n")))
+
+    def test_gateway_keeps_detail_when_there_is_room(self):
+        rows = sched.due_plants(
+            [{"name": "Fern", "water": {"intervalDays": 3, "amountText": "a splash",
+                                        "method": "Mist the leaves"}, "lastWatered": "2026-09-01"}],
+            "2026-09-19",
+        )
+        msg = notify.build_message(rows, "2026-09-19", "", "email")
+        self.assertIn("Mist the leaves", msg)
+
+    def test_heads_up_rows_are_labelled(self):
+        rows = [{"plant": {"name": "Aloe", "water": {"intervalDays": 7}}, "headsUp": True,
+                 "daysUntil": 2, "status": "soon", "daysOverdue": 0, "dueDate": "2026-09-21"}]
+        self.assertIn("in 2 days", notify.build_message(rows, "2026-09-19"))
 
     def test_transport_selection(self):
         twilio = {"TWILIO_ACCOUNT_SID": "AC1", "TWILIO_AUTH_TOKEN": "t",

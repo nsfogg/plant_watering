@@ -115,6 +115,19 @@ code {
 .status-bar.error { background: var(--red-bg); color: var(--red); }
 .status-bar.warn { background: var(--amber-bg); color: var(--amber); }
 
+/* ── Unpublished-changes bar ──────────────────────────── */
+.publish-bar {
+  background: var(--amber-bg); color: var(--amber);
+  border-bottom: 1px solid var(--border);
+  font-size: .9rem; padding: .55rem 0;
+  position: sticky; top: 0; z-index: 19;
+}
+.publish-bar-inner {
+  display: flex; gap: .75rem; align-items: center;
+  justify-content: space-between; flex-wrap: wrap;
+}
+.publish-bar-actions { display: flex; gap: .4rem; flex-shrink: 0; }
+
 /* ── Layout ───────────────────────────────────────────── */
 main { padding: 1.5rem 0 3rem; }
 .view-head { margin-bottom: 1.1rem; }

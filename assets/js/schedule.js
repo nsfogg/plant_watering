@@ -27,7 +27,27 @@ export function toISO(date) {
   return `${y}-${m}-${d}`;
 }
 
-export function todayISO(now = new Date()) {
+/**
+ * Today's date. `timeZone` (an IANA name from the garden settings) keeps the
+ * site's idea of "today" identical to the notifier's, even when the laptop is
+ * travelling or its clock is set to another zone.
+ */
+export function todayISO(now = new Date(), timeZone = null) {
+  if (timeZone) {
+    try {
+      const parts = new Intl.DateTimeFormat('en-US', {
+        timeZone, year: 'numeric', month: '2-digit', day: '2-digit',
+      }).formatToParts(now).reduce((acc, part) => {
+        acc[part.type] = part.value;
+        return acc;
+      }, {});
+      if (parts.year && parts.month && parts.day) {
+        return `${parts.year}-${parts.month}-${parts.day}`;
+      }
+    } catch {
+      // Unknown timezone name — fall back to the device's own date.
+    }
+  }
   return toISO(now);
 }
 
@@ -75,20 +95,31 @@ export function occurrencesInRange(plant, startISO, endISO, today = todayISO()) 
   const start = parseISO(startISO), end = parseISO(endISO);
   if (!start || !end || start > end) return out;
 
-  let cursor = plant.lastWatered && parseISO(plant.lastWatered) ? plant.lastWatered : null;
-  if (!cursor) {
-    // Never watered: it is due now. Anchor the series on today.
-    cursor = today;
-    if (parseISO(cursor) >= start && parseISO(cursor) <= end) out.push(cursor);
-  } else {
-    cursor = addDays(cursor, intervalOn(plant, cursor));
+  const push = (iso) => {
+    const d = parseISO(iso);
+    if (d && d >= start && d <= end && !out.includes(iso)) out.push(iso);
+  };
+
+  const anchored = plant.lastWatered && parseISO(plant.lastWatered);
+  let cursor = anchored ? addDays(plant.lastWatered, intervalOn(plant, plant.lastWatered)) : today;
+
+  // Overdue: show the dates that were missed, then put the plant on today --
+  // it needs water NOW, and the schedule restarts from the day it gets it.
+  if (daysBetween(today, cursor) < 0) {
+    let guard = 0;
+    while (guard++ < 5000 && daysBetween(today, cursor) < 0) {
+      push(cursor);
+      cursor = addDays(cursor, intervalOn(plant, cursor));
+    }
+    push(today);
+    cursor = addDays(today, intervalOn(plant, today));
   }
 
   let guard = 0;
   while (guard++ < 5000) {
     const d = parseISO(cursor);
     if (!d || d > end) break;
-    if (d >= start && !out.includes(cursor)) out.push(cursor);
+    push(cursor);
     cursor = addDays(cursor, intervalOn(plant, cursor));
   }
   return out;

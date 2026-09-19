@@ -7,6 +7,8 @@
 <meta name="description" content="Track every plant, how much water it needs, and what day to water it next.">
 <meta name="theme-color" content="#2f6d4f">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🌿</text></svg>">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="assets/icon.svg">
 <link rel="stylesheet" href="assets/css/style.css">
 </head>
 <body>
@@ -32,6 +34,16 @@
 </header>
 
 <div id="status-bar" class="status-bar" role="status" aria-live="polite" hidden></div>
+
+<div id="publish-bar" class="publish-bar" hidden>
+  <div class="wrap publish-bar-inner">
+    <span id="publish-bar-text"></span>
+    <span class="publish-bar-actions">
+      <button class="btn small primary" id="publish-bar-btn">Publish now</button>
+      <button class="btn small ghost" id="publish-bar-help">Why?</button>
+    </span>
+  </div>
+</div>
 
 <main id="main" class="wrap">
 
@@ -124,6 +136,7 @@
           <label class="field">
             <span>Last watered</span>
             <input type="date" id="f-lastWatered">
+            <small class="error" data-error-for="f-lastWatered" hidden>That date is in the future.</small>
             <small class="hint">Leave empty if it needs water right now.</small>
           </label>
         </div>
@@ -140,6 +153,7 @@
           <label class="field">
             <span>In winter, every … days</span>
             <input type="number" id="f-winterIntervalDays" min="1" max="365" step="1" placeholder="optional">
+            <small class="error" data-error-for="f-winterIntervalDays" hidden>Enter a whole number of days (1–365).</small>
             <small class="hint">Nov–Feb. Most plants drink less in winter.</small>
           </label>
           <label class="field">
@@ -257,7 +271,13 @@
         <label class="field"><span>Repository name</span><input type="text" id="s-repo" placeholder="plant_watering"></label>
         <label class="field"><span>Branch</span><input type="text" id="s-branch" placeholder="main"></label>
         <label class="field"><span>Access token</span><input type="password" id="s-token" placeholder="github_pat_…" autocomplete="off"></label>
+        <label class="field">
+          <span>Folder inside the repository</span>
+          <input type="text" id="s-dir" placeholder="(blank)">
+          <small class="hint">Blank for this repository. Set it to <code>plants</code> if you copied the site into <code>nsfogg.github.io/plants/</code>.</small>
+        </label>
       </div>
+      <label class="checkbox"><input type="checkbox" id="s-autopublish"> Publish automatically after I water or change a plant</label>
       <div class="btn-row">
         <button class="btn primary" id="btn-save-token">Save connection</button>
         <button class="btn ghost" id="btn-test-token">Test connection</button>
@@ -269,8 +289,22 @@
     <div class="card panel">
       <h3>Garden settings</h3>
       <div class="grid-2">
-        <label class="field"><span>Timezone (used by the daily text)</span><input type="text" id="s-timezone" placeholder="America/New_York"></label>
+        <label class="field">
+          <span>Timezone</span>
+          <input type="text" id="s-timezone" placeholder="America/New_York">
+          <small class="hint">Sets the day boundary for both this site and the daily text.</small>
+        </label>
         <label class="field"><span>Site URL (linked in the text)</span><input type="text" id="s-siteurl" placeholder="https://nsfogg.github.io/plant_watering/"></label>
+        <label class="field">
+          <span>Send the text at</span>
+          <select id="s-notifyhour"></select>
+          <small class="hint">Local time in the timezone above.</small>
+        </label>
+        <label class="field">
+          <span>Warn me this many days early</span>
+          <input type="number" id="s-remindahead" min="0" max="14" step="1" placeholder="0">
+          <small class="hint">0 = only tell me on the day.</small>
+        </label>
       </div>
       <div class="btn-row"><button class="btn" id="btn-save-settings">Save garden settings</button></div>
     </div>
@@ -278,7 +312,7 @@
     <div class="card panel">
       <h3>Daily text message</h3>
       <p>A GitHub Action runs every morning, reads <code>data/plants.json</code>, and texts you the plants due that day with their watering instructions. No server, no cron machine — it runs on GitHub's free scheduled workflows.</p>
-      <p class="hint">Set it up once by adding repository secrets — see <a href="https://github.com/nsfogg/plant_watering#daily-text-message" target="_blank" rel="noopener">the setup steps in the README</a>. You can also run it on demand from the repository's Actions tab.</p>
+      <p class="hint">Set it up once by adding repository secrets — see <a href="https://github.com/nsfogg/plant_watering#3-daily-text-message" target="_blank" rel="noopener">the setup steps in the README</a>. You can also run it on demand from the repository's Actions tab.</p>
     </div>
   </section>
 </main>

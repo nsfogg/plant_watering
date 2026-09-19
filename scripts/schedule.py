@@ -7,17 +7,27 @@ tests/test_parity.py checks both implementations against the same fixtures.
 
 from __future__ import annotations
 
+import math
+import re
 from datetime import date, timedelta
 
 WINTER_MONTHS = (11, 12, 1, 2)
+
+# Deliberately strict, and identical to the regex in assets/js/schedule.js:
+# date.fromisoformat() would also accept "20260905" and "2026-09-05T08:00:00",
+# which the browser rejects -- and the two engines must never disagree.
+ISO_DATE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
 
 
 def parse_iso(value):
     """'2026-09-19' -> date, or None when the string is not a valid date."""
     if not isinstance(value, str):
         return None
+    text = value.strip()
+    if not ISO_DATE.match(text):
+        return None
     try:
-        return date.fromisoformat(value.strip())
+        return date.fromisoformat(text)
     except ValueError:
         return None
 
@@ -52,7 +62,9 @@ def interval_on(plant: dict, iso: str) -> int:
     n = base if base and base > 0 else 7
     if is_winter(iso) and winter and winter > 0:
         n = winter
-    return max(1, round(n))
+    # floor(n + 0.5) is half-up, like JavaScript's Math.round. Python's round()
+    # is banker's rounding, which would make 10.5 days differ between engines.
+    return max(1, math.floor(n + 0.5))
 
 
 def _num(value):
@@ -72,13 +84,27 @@ def occurrences_in_range(plant: dict, start_iso: str, end_iso: str, today: str) 
     if start is None or end is None or start > end:
         return out
 
+    def push(iso):
+        d = parse_iso(iso)
+        if d is not None and start <= d <= end and iso not in out:
+            out.append(iso)
+
     last = plant.get("lastWatered")
     if parse_iso(last) is None:
         cursor = today
-        if start <= parse_iso(cursor) <= end:
-            out.append(cursor)
     else:
         cursor = add_days(last, interval_on(plant, last))
+
+    # Overdue: show the missed dates, then put the plant on today -- it needs
+    # water NOW, and the schedule restarts from the day it gets it.
+    if days_between(today, cursor) < 0:
+        guard = 0
+        while guard < 5000 and days_between(today, cursor) < 0:
+            guard += 1
+            push(cursor)
+            cursor = add_days(cursor, interval_on(plant, cursor))
+        push(today)
+        cursor = add_days(today, interval_on(plant, today))
 
     guard = 0
     while guard < 5000:
@@ -86,8 +112,7 @@ def occurrences_in_range(plant: dict, start_iso: str, end_iso: str, today: str) 
         d = parse_iso(cursor)
         if d is None or d > end:
             break
-        if d >= start and cursor not in out:
-            out.append(cursor)
+        push(cursor)
         cursor = add_days(cursor, interval_on(plant, cursor))
     return out
 
