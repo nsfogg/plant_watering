@@ -95,11 +95,35 @@ It runs **hourly**, and `scripts/notify.py` sends on the first run at or after t
 
 **Settings → Warn me this many days early** adds a heads-up line for plants coming due soon, if you want the warning before the day itself.
 
-Pick **one** of the two routes and add its secrets under **Settings → Secrets and variables → Actions → New repository secret**.
+Pick **one** of the three routes below and add its secrets under **Settings → Secrets and variables → Actions → New repository secret**. If more than one is configured, Twilio wins, then Telegram, then the email gateway.
 
-### Route A — free, via your carrier's email-to-SMS gateway
+### Route A — Telegram (free, recommended)
 
-No account, no cost. Send an email to `<your-number>@<carrier-gateway>` and it arrives as a text.
+Carriers are shutting down their email-to-SMS gateways one at a time (AT&T's is already gone), so this is now the most reliable free option. Messages arrive as a push notification in the Telegram app — full detail, no length limit worth worrying about, emoji and all.
+
+1. In Telegram, message **[@BotFather](https://t.me/BotFather)** → send `/newbot` → follow the prompts (any name, any username ending in `bot`). It replies with a token that looks like `123456789:AAExampleToken...` — that's `TELEGRAM_BOT_TOKEN`.
+2. Send your new bot any message (e.g. "hi") so it knows where to reply.
+3. Visit `https://api.telegram.org/bot<your-token>/getUpdates` in a browser (with your real token in place of `<your-token>`). Find `"chat":{"id":` in the response — that number is `TELEGRAM_CHAT_ID`.
+
+| Secret | Value |
+|---|---|
+| `TELEGRAM_BOT_TOKEN` | from @BotFather |
+| `TELEGRAM_CHAT_ID` | from the `getUpdates` response |
+
+### Route B — Twilio (paid, pennies per message)
+
+The most universal option — a real SMS, no app required.
+
+| Secret | Value |
+|---|---|
+| `TWILIO_ACCOUNT_SID` | from the Twilio console |
+| `TWILIO_AUTH_TOKEN` | from the Twilio console |
+| `TWILIO_FROM` | your Twilio number, `+15551234567` |
+| `SMS_TO` | your phone, `+15551234567` |
+
+### Route C — your carrier's email-to-SMS gateway (free, increasingly unreliable)
+
+No account beyond Gmail, but carriers are actively retiring these — **AT&T's `txt.att.net` no longer works for most numbers.** Try Route A instead unless you know your carrier's gateway is still alive.
 
 | Secret | Value |
 |---|---|
@@ -109,22 +133,7 @@ No account, no cost. Send an email to `<your-number>@<carrier-gateway>` and it a
 | `SMTP_PASS` | a Gmail **app password** ([myaccount.google.com/apppasswords](https://myaccount.google.com/apppasswords), requires 2-factor auth) |
 | `SMS_TO_EMAIL` | `<your 10-digit number>@<gateway>` |
 
-Gateways: Verizon `vtext.com` · AT&T `txt.att.net` · T-Mobile `tmomail.net` · Google Fi `msg.fi.google.com` · US Cellular `email.uscc.net` · Cricket `sms.cricketwireless.net` · Boost `sms.myboostmobile.com` · Metro `mymetropcs.com`
-
-So a Verizon number `5551234567` becomes `5551234567@vtext.com`.
-
-*Carriers throttle and occasionally drop gateway mail, and a few are retiring these gateways. If texts stop arriving, switch to Route B.*
-
-### Route B — Twilio (reliable, pennies per message)
-
-| Secret | Value |
-|---|---|
-| `TWILIO_ACCOUNT_SID` | from the Twilio console |
-| `TWILIO_AUTH_TOKEN` | from the Twilio console |
-| `TWILIO_FROM` | your Twilio number, `+15551234567` |
-| `SMS_TO` | your phone, `+15551234567` |
-
-If both routes are configured, Twilio wins.
+Gateways: Verizon `vtext.com` · T-Mobile `tmomail.net` · Google Fi `msg.fi.google.com` · US Cellular `email.uscc.net` · Cricket `sms.cricketwireless.net` · Boost `sms.myboostmobile.com` · Metro `mymetropcs.com`
 
 ### Trying it out
 
