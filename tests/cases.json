@@ -1,0 +1,77 @@
+[
+  {
+    "why": "weekly plant, watered 5 days ago",
+    "today": "2026-09-19",
+    "plant": { "name": "A", "water": { "intervalDays": 7 }, "lastWatered": "2026-09-14" }
+  },
+  {
+    "why": "due exactly today",
+    "today": "2026-09-21",
+    "plant": { "name": "B", "water": { "intervalDays": 7 }, "lastWatered": "2026-09-14" }
+  },
+  {
+    "why": "badly overdue",
+    "today": "2026-10-05",
+    "plant": { "name": "C", "water": { "intervalDays": 7 }, "lastWatered": "2026-09-14" }
+  },
+  {
+    "why": "never watered - due immediately",
+    "today": "2026-09-19",
+    "plant": { "name": "D", "water": { "intervalDays": 10 } }
+  },
+  {
+    "why": "seasonal switch across the winter boundary",
+    "today": "2026-11-05",
+    "plant": { "name": "E", "water": { "intervalDays": 7, "winterIntervalDays": 21 }, "lastWatered": "2026-10-28" }
+  },
+  {
+    "why": "deep winter uses the winter interval",
+    "today": "2027-01-10",
+    "plant": { "name": "F", "water": { "intervalDays": 7, "winterIntervalDays": 21 }, "lastWatered": "2026-12-25" }
+  },
+  {
+    "why": "daily plant",
+    "today": "2026-09-19",
+    "plant": { "name": "G", "water": { "intervalDays": 1 }, "lastWatered": "2026-09-18" }
+  },
+  {
+    "why": "leap day crossing",
+    "today": "2028-03-01",
+    "plant": { "name": "H", "water": { "intervalDays": 3 }, "lastWatered": "2028-02-26" }
+  },
+  {
+    "why": "DST spring-forward week (US)",
+    "today": "2027-03-15",
+    "plant": { "name": "I", "water": { "intervalDays": 7 }, "lastWatered": "2027-03-08" }
+  },
+  {
+    "why": "DST fall-back week (US)",
+    "today": "2026-11-08",
+    "plant": { "name": "J", "water": { "intervalDays": 7, "winterIntervalDays": 14 }, "lastWatered": "2026-11-01" }
+  },
+  {
+    "why": "year boundary",
+    "today": "2027-01-02",
+    "plant": { "name": "K", "water": { "intervalDays": 5, "winterIntervalDays": 9 }, "lastWatered": "2026-12-28" }
+  },
+  {
+    "why": "archived plants are never scheduled",
+    "today": "2026-09-19",
+    "plant": { "name": "L", "water": { "intervalDays": 3 }, "lastWatered": "2026-09-01", "archived": true }
+  },
+  {
+    "why": "missing interval falls back to 7 days",
+    "today": "2026-09-19",
+    "plant": { "name": "M", "water": {}, "lastWatered": "2026-09-12" }
+  },
+  {
+    "why": "garbage lastWatered is treated as never watered",
+    "today": "2026-09-19",
+    "plant": { "name": "N", "water": { "intervalDays": 4 }, "lastWatered": "not-a-date" }
+  },
+  {
+    "why": "long interval spanning seasons",
+    "today": "2026-09-19",
+    "plant": { "name": "O", "water": { "intervalDays": 45, "winterIntervalDays": 60 }, "lastWatered": "2026-09-10" }
+  }
+]

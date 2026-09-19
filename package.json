@@ -1,0 +1,10 @@
+{
+  "name": "plant-care",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Static plant watering tracker for GitHub Pages",
+  "type": "module",
+  "scripts": {
+    "test": "python3 tests/test_schedule.py"
+  }
+}

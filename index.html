@@ -1,0 +1,310 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Plant Care — watering tracker</title>
+<meta name="description" content="Track every plant, how much water it needs, and what day to water it next.">
+<meta name="theme-color" content="#2f6d4f">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🌿</text></svg>">
+<link rel="stylesheet" href="assets/css/style.css">
+</head>
+<body>
+<a class="skip-link" href="#main">Skip to content</a>
+
+<header class="site-header">
+  <div class="wrap header-inner">
+    <div class="brand">
+      <span class="brand-mark" aria-hidden="true">🌿</span>
+      <div>
+        <h1>Plant Care</h1>
+        <p class="brand-sub">Water the right plant, on the right day, with the right amount.</p>
+      </div>
+    </div>
+    <nav class="tabs" aria-label="Sections">
+      <button class="tab" data-view="today" aria-current="page">Today</button>
+      <button class="tab" data-view="garden">My Plants</button>
+      <button class="tab" data-view="calendar">Calendar</button>
+      <button class="tab" data-view="add">Add Plant</button>
+      <button class="tab" data-view="settings">Settings</button>
+    </nav>
+  </div>
+</header>
+
+<div id="status-bar" class="status-bar" role="status" aria-live="polite" hidden></div>
+
+<main id="main" class="wrap">
+
+  <!-- ───────────────────────── Today ───────────────────────── -->
+  <section id="view-today" class="view" aria-labelledby="today-heading">
+    <div class="view-head">
+      <h2 id="today-heading">Today <span id="today-date" class="muted"></span></h2>
+      <p class="muted">Everything that needs water now, plus what is coming up this week.</p>
+    </div>
+    <div id="today-stats" class="stat-row"></div>
+    <div id="today-due" class="care-list"></div>
+    <h3 class="section-title">Next 7 days</h3>
+    <div id="today-upcoming" class="care-list"></div>
+  </section>
+
+  <!-- ───────────────────────── Garden ───────────────────────── -->
+  <section id="view-garden" class="view" aria-labelledby="garden-heading" hidden>
+    <div class="view-head">
+      <h2 id="garden-heading">My Plants</h2>
+      <div class="toolbar">
+        <label class="field inline">
+          <span class="sr-only">Search plants</span>
+          <input type="search" id="garden-search" placeholder="Search by name, species, room…">
+        </label>
+        <label class="field inline">
+          <span class="sr-only">Sort</span>
+          <select id="garden-sort">
+            <option value="due">Sort: next watering</option>
+            <option value="name">Sort: name</option>
+            <option value="added">Sort: recently added</option>
+          </select>
+        </label>
+        <label class="checkbox"><input type="checkbox" id="garden-archived"> Show archived</label>
+      </div>
+    </div>
+    <div id="garden-grid" class="plant-grid"></div>
+  </section>
+
+  <!-- ──────────────────────── Calendar ──────────────────────── -->
+  <section id="view-calendar" class="view" aria-labelledby="calendar-heading" hidden>
+    <div class="view-head">
+      <h2 id="calendar-heading">Watering Calendar</h2>
+      <div class="toolbar calendar-nav">
+        <button class="btn ghost" id="cal-prev" aria-label="Previous month">&larr;</button>
+        <strong id="cal-label" class="cal-label"></strong>
+        <button class="btn ghost" id="cal-next" aria-label="Next month">&rarr;</button>
+        <button class="btn ghost" id="cal-today">This month</button>
+      </div>
+    </div>
+    <div class="calendar" role="grid" aria-labelledby="calendar-heading">
+      <div class="cal-head" role="row">
+        <span role="columnheader">Sun</span><span role="columnheader">Mon</span>
+        <span role="columnheader">Tue</span><span role="columnheader">Wed</span>
+        <span role="columnheader">Thu</span><span role="columnheader">Fri</span>
+        <span role="columnheader">Sat</span>
+      </div>
+      <div id="cal-grid" class="cal-grid"></div>
+    </div>
+    <div id="cal-detail" class="cal-detail"></div>
+    <h3 class="section-title">Full schedule (next 30 days)</h3>
+    <div id="cal-agenda" class="agenda"></div>
+  </section>
+
+  <!-- ───────────────────── Add / edit plant ───────────────────── -->
+  <section id="view-add" class="view" aria-labelledby="add-heading" hidden>
+    <div class="view-head">
+      <h2 id="add-heading">Add a Plant</h2>
+      <p class="muted">Only the name and watering frequency are required — everything else can come later.</p>
+    </div>
+
+    <form id="plant-form" class="plant-form" novalidate>
+      <input type="hidden" id="f-id">
+
+      <fieldset>
+        <legend>The basics</legend>
+        <div class="grid-2">
+          <label class="field">
+            <span>Plant name <em class="req" aria-hidden="true">*</em></span>
+            <input type="text" id="f-name" required placeholder="Monstera by the couch" autocomplete="off">
+            <small class="error" data-error-for="f-name" hidden>Give your plant a name.</small>
+          </label>
+          <label class="field">
+            <span>Species / variety</span>
+            <input type="text" id="f-species" placeholder="Monstera deliciosa" autocomplete="off">
+          </label>
+          <label class="field">
+            <span>Where it lives</span>
+            <input type="text" id="f-location" placeholder="Living room, near the south window">
+          </label>
+          <label class="field">
+            <span>Last watered</span>
+            <input type="date" id="f-lastWatered">
+            <small class="hint">Leave empty if it needs water right now.</small>
+          </label>
+        </div>
+      </fieldset>
+
+      <fieldset>
+        <legend>Water</legend>
+        <div class="grid-2">
+          <label class="field">
+            <span>Water every … days <em class="req" aria-hidden="true">*</em></span>
+            <input type="number" id="f-intervalDays" min="1" max="365" step="1" value="7" required>
+            <small class="error" data-error-for="f-intervalDays" hidden>Enter a whole number of days (1–365).</small>
+          </label>
+          <label class="field">
+            <span>In winter, every … days</span>
+            <input type="number" id="f-winterIntervalDays" min="1" max="365" step="1" placeholder="optional">
+            <small class="hint">Nov–Feb. Most plants drink less in winter.</small>
+          </label>
+          <label class="field">
+            <span>How much water (ml)</span>
+            <input type="number" id="f-amountMl" min="0" max="20000" step="10" placeholder="500">
+          </label>
+          <label class="field">
+            <span>How much, in plain words</span>
+            <input type="text" id="f-amountText" placeholder="about 2 cups">
+          </label>
+        </div>
+        <label class="field">
+          <span>How to water it</span>
+          <textarea id="f-method" rows="2" placeholder="Water slowly until it drains out the bottom, then empty the saucer"></textarea>
+        </label>
+      </fieldset>
+
+      <fieldset>
+        <legend>Light, food &amp; environment</legend>
+        <div class="grid-2">
+          <label class="field">
+            <span>Sunlight</span>
+            <input type="text" id="f-sun" placeholder="Bright indirect light, no direct afternoon sun">
+          </label>
+          <label class="field">
+            <span>Soil</span>
+            <input type="text" id="f-soil" placeholder="Chunky aroid mix with perlite">
+          </label>
+          <label class="field">
+            <span>Fertilizer</span>
+            <input type="text" id="f-fertilizer" placeholder="Half-strength balanced feed monthly, Apr–Sep">
+          </label>
+          <label class="field">
+            <span>Humidity</span>
+            <input type="text" id="f-humidity" placeholder="50%+">
+          </label>
+          <label class="field">
+            <span>Temperature</span>
+            <input type="text" id="f-temperature" placeholder="65–85°F, away from drafts">
+          </label>
+          <label class="field">
+            <span>Pet / child safety</span>
+            <input type="text" id="f-toxicity" placeholder="Toxic to cats and dogs">
+          </label>
+        </div>
+      </fieldset>
+
+      <fieldset>
+        <legend>Photos</legend>
+        <p class="hint">Pictures are resized in your browser before they are saved, so the files stay small.</p>
+        <div class="grid-2">
+          <div class="field">
+            <span>Healthy — what it looks like when it is thriving</span>
+            <input type="file" id="f-photo-healthy" accept="image/*" multiple>
+            <div id="preview-healthy" class="thumb-row"></div>
+          </div>
+          <div class="field">
+            <span>Unhealthy — what trouble looks like</span>
+            <input type="file" id="f-photo-unhealthy" accept="image/*" multiple>
+            <div id="preview-unhealthy" class="thumb-row"></div>
+          </div>
+        </div>
+      </fieldset>
+
+      <fieldset>
+        <legend>Notes</legend>
+        <label class="field">
+          <span>Signs it is happy</span>
+          <textarea id="f-healthySigns" rows="2" placeholder="Firm glossy leaves, new growth every few weeks"></textarea>
+        </label>
+        <label class="field">
+          <span>Warning signs &amp; what they mean</span>
+          <textarea id="f-warningSigns" rows="3" placeholder="Yellow lower leaves = overwatered. Crispy edges = too dry."></textarea>
+        </label>
+        <label class="field">
+          <span>Anything else</span>
+          <textarea id="f-notes" rows="3" placeholder="Rotate a quarter turn each watering. Repot every 2 years."></textarea>
+        </label>
+        <label class="checkbox"><input type="checkbox" id="f-archived"> Archived (hide from schedule &amp; texts)</label>
+      </fieldset>
+
+      <div class="form-actions">
+        <button type="submit" class="btn primary" id="f-submit">Save plant</button>
+        <button type="button" class="btn ghost" id="f-reset">Clear form</button>
+        <span id="f-status" class="muted" role="status" aria-live="polite"></span>
+      </div>
+    </form>
+  </section>
+
+  <!-- ───────────────────────── Settings ───────────────────────── -->
+  <section id="view-settings" class="view" aria-labelledby="settings-heading" hidden>
+    <div class="view-head">
+      <h2 id="settings-heading">Settings &amp; Saving</h2>
+    </div>
+
+    <div class="card panel">
+      <h3>Where your plants are stored</h3>
+      <p>Everything lives in <code>data/plants.json</code> in this GitHub repository. Your browser keeps a working copy so the site stays fast and works offline — press <strong>Publish</strong> to write your changes back to GitHub, which is also what the daily text message reads.</p>
+      <div id="sync-state" class="sync-state"></div>
+      <div class="btn-row">
+        <button class="btn primary" id="btn-publish">Publish changes to GitHub</button>
+        <button class="btn" id="btn-download">Download plants.json</button>
+        <button class="btn" id="btn-import">Import plants.json</button>
+        <button class="btn ghost" id="btn-discard">Discard local changes</button>
+        <input type="file" id="import-file" accept="application/json,.json" hidden>
+      </div>
+    </div>
+
+    <div class="card panel">
+      <h3>GitHub publishing</h3>
+      <p class="hint">A fine-grained personal access token with <strong>Contents: Read and write</strong> on just this repository. It is stored only in this browser (localStorage) and is sent straight to github.com — nothing else ever sees it.
+        <a href="https://github.com/settings/personal-access-tokens/new" target="_blank" rel="noopener">Create a token →</a></p>
+      <div class="grid-2">
+        <label class="field"><span>Repository owner</span><input type="text" id="s-owner" placeholder="nsfogg"></label>
+        <label class="field"><span>Repository name</span><input type="text" id="s-repo" placeholder="plant_watering"></label>
+        <label class="field"><span>Branch</span><input type="text" id="s-branch" placeholder="main"></label>
+        <label class="field"><span>Access token</span><input type="password" id="s-token" placeholder="github_pat_…" autocomplete="off"></label>
+      </div>
+      <div class="btn-row">
+        <button class="btn primary" id="btn-save-token">Save connection</button>
+        <button class="btn ghost" id="btn-test-token">Test connection</button>
+        <button class="btn ghost" id="btn-clear-token">Forget token</button>
+      </div>
+      <div id="token-state" class="sync-state"></div>
+    </div>
+
+    <div class="card panel">
+      <h3>Garden settings</h3>
+      <div class="grid-2">
+        <label class="field"><span>Timezone (used by the daily text)</span><input type="text" id="s-timezone" placeholder="America/New_York"></label>
+        <label class="field"><span>Site URL (linked in the text)</span><input type="text" id="s-siteurl" placeholder="https://nsfogg.github.io/plant_watering/"></label>
+      </div>
+      <div class="btn-row"><button class="btn" id="btn-save-settings">Save garden settings</button></div>
+    </div>
+
+    <div class="card panel">
+      <h3>Daily text message</h3>
+      <p>A GitHub Action runs every morning, reads <code>data/plants.json</code>, and texts you the plants due that day with their watering instructions. No server, no cron machine — it runs on GitHub's free scheduled workflows.</p>
+      <p class="hint">Set it up once by adding repository secrets — see <a href="https://github.com/nsfogg/plant_watering#daily-text-message" target="_blank" rel="noopener">the setup steps in the README</a>. You can also run it on demand from the repository's Actions tab.</p>
+    </div>
+  </section>
+</main>
+
+<footer class="site-footer">
+  <div class="wrap">
+    <p>🌿 Plant Care — a static site on GitHub Pages. Data in <code>data/plants.json</code>, reminders by GitHub Actions.</p>
+  </div>
+</footer>
+
+<!-- Plant detail dialog -->
+<dialog id="plant-dialog" class="dialog">
+  <div id="plant-dialog-body"></div>
+  <form method="dialog" class="dialog-close-row">
+    <button class="btn ghost" value="close">Close</button>
+  </form>
+</dialog>
+
+<!-- Lightbox for photos -->
+<dialog id="photo-dialog" class="dialog photo-dialog">
+  <img id="photo-dialog-img" alt="Plant photo, enlarged">
+  <form method="dialog" class="dialog-close-row">
+    <button class="btn ghost" value="close">Close</button>
+  </form>
+</dialog>
+
+<script type="module" src="assets/js/app.js"></script>
+</body>
+</html>
