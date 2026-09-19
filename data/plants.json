@@ -1,11 +1,12 @@
 {
   "version": 1,
-  "updatedAt": "2026-09-19T00:00:00.000Z",
+  "updatedAt": "2026-09-19T18:55:39.142Z",
   "settings": {
     "timezone": "America/New_York",
     "siteUrl": "https://nsfogg.github.io/plant_watering/",
+    "notifyHour": 15,
     "remindAheadDays": 0,
-    "notifyHour": 8
+    "updatedAt": "2026-09-19T18:36:36.498Z"
   },
   "plants": [
     {
@@ -21,10 +22,10 @@
         "method": "Water slowly until it drains from the bottom, then empty the saucer"
       },
       "sun": "Bright indirect light",
-      "soil": "Chunky aroid mix \u2014 bark, perlite, potting soil",
+      "soil": "Chunky aroid mix — bark, perlite, potting soil",
       "fertilizer": "Balanced 20-20-20, half strength, every 4 weeks Apr-Sep",
-      "humidity": "50%+ \u2014 mist or group with other plants",
-      "temperature": "65-85\u00b0F, keep away from cold drafts",
+      "humidity": "50%+ — mist or group with other plants",
+      "temperature": "65-85°F, keep away from cold drafts",
       "toxicity": "Toxic to cats and dogs if chewed",
       "healthySigns": "Firm, glossy dark-green leaves with open fenestrations; new growth every few weeks",
       "warningSigns": "Yellow lower leaves = overwatered. Crispy brown edges = too dry or low humidity. Drooping = thirsty.",
@@ -58,12 +59,12 @@
       "sun": "Tolerates low light, happiest in medium indirect",
       "soil": "Fast-draining cactus/succulent mix",
       "fertilizer": "Cactus feed twice a year, spring and midsummer",
-      "humidity": "Anything \u2014 very forgiving",
-      "temperature": "60-85\u00b0F",
+      "humidity": "Anything — very forgiving",
+      "temperature": "60-85°F",
       "toxicity": "Mildly toxic to pets",
       "healthySigns": "Stiff upright leaves, deep green with pale banding",
       "warningSigns": "Mushy base or leaves falling over = overwatered. Wrinkled leaves = under-watered.",
-      "notes": "The most common way to kill this plant is kindness \u2014 when in doubt, skip a watering.",
+      "notes": "The most common way to kill this plant is kindness — when in doubt, skip a watering.",
       "photos": {
         "healthy": [],
         "unhealthy": []
@@ -77,5 +78,6 @@
       "createdAt": "2026-09-19T00:00:00.000Z",
       "updatedAt": "2026-09-19T00:00:00.000Z"
     }
-  ]
+  ],
+  "deleted": {}
 }
