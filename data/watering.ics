@@ -1,0 +1,485 @@
+BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//Plant Care//Watering schedule//EN
+CALSCALE:GREGORIAN
+METHOD:PUBLISH
+X-WR-CALNAME:Plant watering
+X-WR-TIMEZONE:America/New_York
+REFRESH-INTERVAL;VALUE=DURATION:PT12H
+X-PUBLISHED-TTL:PT12H
+BEGIN:VEVENT
+UID:example-monstera-20260919@plant-care
+DTSTAMP:20260919T134632Z
+DTSTART;VALUE=DATE:20260919
+DTEND;VALUE=DATE:20260920
+SUMMARY:Water Monstera (example)
+DESCRIPTION:500 ml — about 2 cups\nWater slowly until it drains from the 
+ bottom\, then empty the saucer\nLight: Bright indirect light\nWhere: Livin
+ g room\, 6 ft from the south window\nWatch for: Yellow lower leaves = over
+ watered. Crispy brown edges = too dry or low humidity. Drooping = thirsty.
+ \nNotes: Rotate a quarter turn each watering so it grows evenly. Wipe leav
+ es monthly.\nLog it: https://nsfogg.github.io/plant_watering/#today
+TRANSP:TRANSPARENT
+BEGIN:VALARM
+TRIGGER;RELATED=START:PT8H
+ACTION:DISPLAY
+DESCRIPTION:Water Monstera (example) — 500 ml — about 2 cups
+END:VALARM
+END:VEVENT
+BEGIN:VEVENT
+UID:example-monstera-20260926@plant-care
+DTSTAMP:20260919T134632Z
+DTSTART;VALUE=DATE:20260926
+DTEND;VALUE=DATE:20260927
+SUMMARY:Water Monstera (example)
+DESCRIPTION:500 ml — about 2 cups\nWater slowly until it drains from the 
+ bottom\, then empty the saucer\nLight: Bright indirect light\nWhere: Livin
+ g room\, 6 ft from the south window\nWatch for: Yellow lower leaves = over
+ watered. Crispy brown edges = too dry or low humidity. Drooping = thirsty.
+ \nNotes: Rotate a quarter turn each watering so it grows evenly. Wipe leav
+ es monthly.\nLog it: https://nsfogg.github.io/plant_watering/#today
+TRANSP:TRANSPARENT
+BEGIN:VALARM
+TRIGGER;RELATED=START:PT8H
+ACTION:DISPLAY
+DESCRIPTION:Water Monstera (example) — 500 ml — about 2 cups
+END:VALARM
+END:VEVENT
+BEGIN:VEVENT
+UID:example-monstera-20261003@plant-care
+DTSTAMP:20260919T134632Z
+DTSTART;VALUE=DATE:20261003
+DTEND;VALUE=DATE:20261004
+SUMMARY:Water Monstera (example)
+DESCRIPTION:500 ml — about 2 cups\nWater slowly until it drains from the 
+ bottom\, then empty the saucer\nLight: Bright indirect light\nWhere: Livin
+ g room\, 6 ft from the south window\nWatch for: Yellow lower leaves = over
+ watered. Crispy brown edges = too dry or low humidity. Drooping = thirsty.
+ \nNotes: Rotate a quarter turn each watering so it grows evenly. Wipe leav
+ es monthly.\nLog it: https://nsfogg.github.io/plant_watering/#today
+TRANSP:TRANSPARENT
+BEGIN:VALARM
+TRIGGER;RELATED=START:PT8H
+ACTION:DISPLAY
+DESCRIPTION:Water Monstera (example) — 500 ml — about 2 cups
+END:VALARM
+END:VEVENT
+BEGIN:VEVENT
+UID:example-monstera-20261010@plant-care
+DTSTAMP:20260919T134632Z
+DTSTART;VALUE=DATE:20261010
+DTEND;VALUE=DATE:20261011
+SUMMARY:Water Monstera (example)
+DESCRIPTION:500 ml — about 2 cups\nWater slowly until it drains from the 
+ bottom\, then empty the saucer\nLight: Bright indirect light\nWhere: Livin
+ g room\, 6 ft from the south window\nWatch for: Yellow lower leaves = over
+ watered. Crispy brown edges = too dry or low humidity. Drooping = thirsty.
+ \nNotes: Rotate a quarter turn each watering so it grows evenly. Wipe leav
+ es monthly.\nLog it: https://nsfogg.github.io/plant_watering/#today
+TRANSP:TRANSPARENT
+BEGIN:VALARM
+TRIGGER;RELATED=START:PT8H
+ACTION:DISPLAY
+DESCRIPTION:Water Monstera (example) — 500 ml — about 2 cups
+END:VALARM
+END:VEVENT
+BEGIN:VEVENT
+UID:example-monstera-20261017@plant-care
+DTSTAMP:20260919T134632Z
+DTSTART;VALUE=DATE:20261017
+DTEND;VALUE=DATE:20261018
+SUMMARY:Water Monstera (example)
+DESCRIPTION:500 ml — about 2 cups\nWater slowly until it drains from the 
+ bottom\, then empty the saucer\nLight: Bright indirect light\nWhere: Livin
+ g room\, 6 ft from the south window\nWatch for: Yellow lower leaves = over
+ watered. Crispy brown edges = too dry or low humidity. Drooping = thirsty.
+ \nNotes: Rotate a quarter turn each watering so it grows evenly. Wipe leav
+ es monthly.\nLog it: https://nsfogg.github.io/plant_watering/#today
+TRANSP:TRANSPARENT
+BEGIN:VALARM
+TRIGGER;RELATED=START:PT8H
+ACTION:DISPLAY
+DESCRIPTION:Water Monstera (example) — 500 ml — about 2 cups
+END:VALARM
+END:VEVENT
+BEGIN:VEVENT
+UID:example-monstera-20261024@plant-care
+DTSTAMP:20260919T134632Z
+DTSTART;VALUE=DATE:20261024
+DTEND;VALUE=DATE:20261025
+SUMMARY:Water Monstera (example)
+DESCRIPTION:500 ml — about 2 cups\nWater slowly until it drains from the 
+ bottom\, then empty the saucer\nLight: Bright indirect light\nWhere: Livin
+ g room\, 6 ft from the south window\nWatch for: Yellow lower leaves = over
+ watered. Crispy brown edges = too dry or low humidity. Drooping = thirsty.
+ \nNotes: Rotate a quarter turn each watering so it grows evenly. Wipe leav
+ es monthly.\nLog it: https://nsfogg.github.io/plant_watering/#today
+TRANSP:TRANSPARENT
+BEGIN:VALARM
+TRIGGER;RELATED=START:PT8H
+ACTION:DISPLAY
+DESCRIPTION:Water Monstera (example) — 500 ml — about 2 cups
+END:VALARM
+END:VEVENT
+BEGIN:VEVENT
+UID:example-monstera-20261031@plant-care
+DTSTAMP:20260919T134632Z
+DTSTART;VALUE=DATE:20261031
+DTEND;VALUE=DATE:20261101
+SUMMARY:Water Monstera (example)
+DESCRIPTION:500 ml — about 2 cups\nWater slowly until it drains from the 
+ bottom\, then empty the saucer\nLight: Bright indirect light\nWhere: Livin
+ g room\, 6 ft from the south window\nWatch for: Yellow lower leaves = over
+ watered. Crispy brown edges = too dry or low humidity. Drooping = thirsty.
+ \nNotes: Rotate a quarter turn each watering so it grows evenly. Wipe leav
+ es monthly.\nLog it: https://nsfogg.github.io/plant_watering/#today
+TRANSP:TRANSPARENT
+BEGIN:VALARM
+TRIGGER;RELATED=START:PT8H
+ACTION:DISPLAY
+DESCRIPTION:Water Monstera (example) — 500 ml — about 2 cups
+END:VALARM
+END:VEVENT
+BEGIN:VEVENT
+UID:example-monstera-20261107@plant-care
+DTSTAMP:20260919T134632Z
+DTSTART;VALUE=DATE:20261107
+DTEND;VALUE=DATE:20261108
+SUMMARY:Water Monstera (example)
+DESCRIPTION:500 ml — about 2 cups\nWater slowly until it drains from the 
+ bottom\, then empty the saucer\nLight: Bright indirect light\nWhere: Livin
+ g room\, 6 ft from the south window\nWatch for: Yellow lower leaves = over
+ watered. Crispy brown edges = too dry or low humidity. Drooping = thirsty.
+ \nNotes: Rotate a quarter turn each watering so it grows evenly. Wipe leav
+ es monthly.\nLog it: https://nsfogg.github.io/plant_watering/#today
+TRANSP:TRANSPARENT
+BEGIN:VALARM
+TRIGGER;RELATED=START:PT8H
+ACTION:DISPLAY
+DESCRIPTION:Water Monstera (example) — 500 ml — about 2 cups
+END:VALARM
+END:VEVENT
+BEGIN:VEVENT
+UID:example-monstera-20261119@plant-care
+DTSTAMP:20260919T134632Z
+DTSTART;VALUE=DATE:20261119
+DTEND;VALUE=DATE:20261120
+SUMMARY:Water Monstera (example)
+DESCRIPTION:500 ml — about 2 cups\nWater slowly until it drains from the 
+ bottom\, then empty the saucer\nLight: Bright indirect light\nWhere: Livin
+ g room\, 6 ft from the south window\nWatch for: Yellow lower leaves = over
+ watered. Crispy brown edges = too dry or low humidity. Drooping = thirsty.
+ \nNotes: Rotate a quarter turn each watering so it grows evenly. Wipe leav
+ es monthly.\nLog it: https://nsfogg.github.io/plant_watering/#today
+TRANSP:TRANSPARENT
+BEGIN:VALARM
+TRIGGER;RELATED=START:PT8H
+ACTION:DISPLAY
+DESCRIPTION:Water Monstera (example) — 500 ml — about 2 cups
+END:VALARM
+END:VEVENT
+BEGIN:VEVENT
+UID:example-monstera-20261201@plant-care
+DTSTAMP:20260919T134632Z
+DTSTART;VALUE=DATE:20261201
+DTEND;VALUE=DATE:20261202
+SUMMARY:Water Monstera (example)
+DESCRIPTION:500 ml — about 2 cups\nWater slowly until it drains from the 
+ bottom\, then empty the saucer\nLight: Bright indirect light\nWhere: Livin
+ g room\, 6 ft from the south window\nWatch for: Yellow lower leaves = over
+ watered. Crispy brown edges = too dry or low humidity. Drooping = thirsty.
+ \nNotes: Rotate a quarter turn each watering so it grows evenly. Wipe leav
+ es monthly.\nLog it: https://nsfogg.github.io/plant_watering/#today
+TRANSP:TRANSPARENT
+BEGIN:VALARM
+TRIGGER;RELATED=START:PT8H
+ACTION:DISPLAY
+DESCRIPTION:Water Monstera (example) — 500 ml — about 2 cups
+END:VALARM
+END:VEVENT
+BEGIN:VEVENT
+UID:example-monstera-20261213@plant-care
+DTSTAMP:20260919T134632Z
+DTSTART;VALUE=DATE:20261213
+DTEND;VALUE=DATE:20261214
+SUMMARY:Water Monstera (example)
+DESCRIPTION:500 ml — about 2 cups\nWater slowly until it drains from the 
+ bottom\, then empty the saucer\nLight: Bright indirect light\nWhere: Livin
+ g room\, 6 ft from the south window\nWatch for: Yellow lower leaves = over
+ watered. Crispy brown edges = too dry or low humidity. Drooping = thirsty.
+ \nNotes: Rotate a quarter turn each watering so it grows evenly. Wipe leav
+ es monthly.\nLog it: https://nsfogg.github.io/plant_watering/#today
+TRANSP:TRANSPARENT
+BEGIN:VALARM
+TRIGGER;RELATED=START:PT8H
+ACTION:DISPLAY
+DESCRIPTION:Water Monstera (example) — 500 ml — about 2 cups
+END:VALARM
+END:VEVENT
+BEGIN:VEVENT
+UID:example-monstera-20261225@plant-care
+DTSTAMP:20260919T134632Z
+DTSTART;VALUE=DATE:20261225
+DTEND;VALUE=DATE:20261226
+SUMMARY:Water Monstera (example)
+DESCRIPTION:500 ml — about 2 cups\nWater slowly until it drains from the 
+ bottom\, then empty the saucer\nLight: Bright indirect light\nWhere: Livin
+ g room\, 6 ft from the south window\nWatch for: Yellow lower leaves = over
+ watered. Crispy brown edges = too dry or low humidity. Drooping = thirsty.
+ \nNotes: Rotate a quarter turn each watering so it grows evenly. Wipe leav
+ es monthly.\nLog it: https://nsfogg.github.io/plant_watering/#today
+TRANSP:TRANSPARENT
+BEGIN:VALARM
+TRIGGER;RELATED=START:PT8H
+ACTION:DISPLAY
+DESCRIPTION:Water Monstera (example) — 500 ml — about 2 cups
+END:VALARM
+END:VEVENT
+BEGIN:VEVENT
+UID:example-monstera-20270106@plant-care
+DTSTAMP:20260919T134632Z
+DTSTART;VALUE=DATE:20270106
+DTEND;VALUE=DATE:20270107
+SUMMARY:Water Monstera (example)
+DESCRIPTION:500 ml — about 2 cups\nWater slowly until it drains from the 
+ bottom\, then empty the saucer\nLight: Bright indirect light\nWhere: Livin
+ g room\, 6 ft from the south window\nWatch for: Yellow lower leaves = over
+ watered. Crispy brown edges = too dry or low humidity. Drooping = thirsty.
+ \nNotes: Rotate a quarter turn each watering so it grows evenly. Wipe leav
+ es monthly.\nLog it: https://nsfogg.github.io/plant_watering/#today
+TRANSP:TRANSPARENT
+BEGIN:VALARM
+TRIGGER;RELATED=START:PT8H
+ACTION:DISPLAY
+DESCRIPTION:Water Monstera (example) — 500 ml — about 2 cups
+END:VALARM
+END:VEVENT
+BEGIN:VEVENT
+UID:example-monstera-20270118@plant-care
+DTSTAMP:20260919T134632Z
+DTSTART;VALUE=DATE:20270118
+DTEND;VALUE=DATE:20270119
+SUMMARY:Water Monstera (example)
+DESCRIPTION:500 ml — about 2 cups\nWater slowly until it drains from the 
+ bottom\, then empty the saucer\nLight: Bright indirect light\nWhere: Livin
+ g room\, 6 ft from the south window\nWatch for: Yellow lower leaves = over
+ watered. Crispy brown edges = too dry or low humidity. Drooping = thirsty.
+ \nNotes: Rotate a quarter turn each watering so it grows evenly. Wipe leav
+ es monthly.\nLog it: https://nsfogg.github.io/plant_watering/#today
+TRANSP:TRANSPARENT
+BEGIN:VALARM
+TRIGGER;RELATED=START:PT8H
+ACTION:DISPLAY
+DESCRIPTION:Water Monstera (example) — 500 ml — about 2 cups
+END:VALARM
+END:VEVENT
+BEGIN:VEVENT
+UID:example-monstera-20270130@plant-care
+DTSTAMP:20260919T134632Z
+DTSTART;VALUE=DATE:20270130
+DTEND;VALUE=DATE:20270131
+SUMMARY:Water Monstera (example)
+DESCRIPTION:500 ml — about 2 cups\nWater slowly until it drains from the 
+ bottom\, then empty the saucer\nLight: Bright indirect light\nWhere: Livin
+ g room\, 6 ft from the south window\nWatch for: Yellow lower leaves = over
+ watered. Crispy brown edges = too dry or low humidity. Drooping = thirsty.
+ \nNotes: Rotate a quarter turn each watering so it grows evenly. Wipe leav
+ es monthly.\nLog it: https://nsfogg.github.io/plant_watering/#today
+TRANSP:TRANSPARENT
+BEGIN:VALARM
+TRIGGER;RELATED=START:PT8H
+ACTION:DISPLAY
+DESCRIPTION:Water Monstera (example) — 500 ml — about 2 cups
+END:VALARM
+END:VEVENT
+BEGIN:VEVENT
+UID:example-monstera-20270211@plant-care
+DTSTAMP:20260919T134632Z
+DTSTART;VALUE=DATE:20270211
+DTEND;VALUE=DATE:20270212
+SUMMARY:Water Monstera (example)
+DESCRIPTION:500 ml — about 2 cups\nWater slowly until it drains from the 
+ bottom\, then empty the saucer\nLight: Bright indirect light\nWhere: Livin
+ g room\, 6 ft from the south window\nWatch for: Yellow lower leaves = over
+ watered. Crispy brown edges = too dry or low humidity. Drooping = thirsty.
+ \nNotes: Rotate a quarter turn each watering so it grows evenly. Wipe leav
+ es monthly.\nLog it: https://nsfogg.github.io/plant_watering/#today
+TRANSP:TRANSPARENT
+BEGIN:VALARM
+TRIGGER;RELATED=START:PT8H
+ACTION:DISPLAY
+DESCRIPTION:Water Monstera (example) — 500 ml — about 2 cups
+END:VALARM
+END:VEVENT
+BEGIN:VEVENT
+UID:example-monstera-20270223@plant-care
+DTSTAMP:20260919T134632Z
+DTSTART;VALUE=DATE:20270223
+DTEND;VALUE=DATE:20270224
+SUMMARY:Water Monstera (example)
+DESCRIPTION:500 ml — about 2 cups\nWater slowly until it drains from the 
+ bottom\, then empty the saucer\nLight: Bright indirect light\nWhere: Livin
+ g room\, 6 ft from the south window\nWatch for: Yellow lower leaves = over
+ watered. Crispy brown edges = too dry or low humidity. Drooping = thirsty.
+ \nNotes: Rotate a quarter turn each watering so it grows evenly. Wipe leav
+ es monthly.\nLog it: https://nsfogg.github.io/plant_watering/#today
+TRANSP:TRANSPARENT
+BEGIN:VALARM
+TRIGGER;RELATED=START:PT8H
+ACTION:DISPLAY
+DESCRIPTION:Water Monstera (example) — 500 ml — about 2 cups
+END:VALARM
+END:VEVENT
+BEGIN:VEVENT
+UID:example-monstera-20270307@plant-care
+DTSTAMP:20260919T134632Z
+DTSTART;VALUE=DATE:20270307
+DTEND;VALUE=DATE:20270308
+SUMMARY:Water Monstera (example)
+DESCRIPTION:500 ml — about 2 cups\nWater slowly until it drains from the 
+ bottom\, then empty the saucer\nLight: Bright indirect light\nWhere: Livin
+ g room\, 6 ft from the south window\nWatch for: Yellow lower leaves = over
+ watered. Crispy brown edges = too dry or low humidity. Drooping = thirsty.
+ \nNotes: Rotate a quarter turn each watering so it grows evenly. Wipe leav
+ es monthly.\nLog it: https://nsfogg.github.io/plant_watering/#today
+TRANSP:TRANSPARENT
+BEGIN:VALARM
+TRIGGER;RELATED=START:PT8H
+ACTION:DISPLAY
+DESCRIPTION:Water Monstera (example) — 500 ml — about 2 cups
+END:VALARM
+END:VEVENT
+BEGIN:VEVENT
+UID:example-monstera-20270314@plant-care
+DTSTAMP:20260919T134632Z
+DTSTART;VALUE=DATE:20270314
+DTEND;VALUE=DATE:20270315
+SUMMARY:Water Monstera (example)
+DESCRIPTION:500 ml — about 2 cups\nWater slowly until it drains from the 
+ bottom\, then empty the saucer\nLight: Bright indirect light\nWhere: Livin
+ g room\, 6 ft from the south window\nWatch for: Yellow lower leaves = over
+ watered. Crispy brown edges = too dry or low humidity. Drooping = thirsty.
+ \nNotes: Rotate a quarter turn each watering so it grows evenly. Wipe leav
+ es monthly.\nLog it: https://nsfogg.github.io/plant_watering/#today
+TRANSP:TRANSPARENT
+BEGIN:VALARM
+TRIGGER;RELATED=START:PT8H
+ACTION:DISPLAY
+DESCRIPTION:Water Monstera (example) — 500 ml — about 2 cups
+END:VALARM
+END:VEVENT
+BEGIN:VEVENT
+UID:example-snake-plant-20260923@plant-care
+DTSTAMP:20260919T134632Z
+DTSTART;VALUE=DATE:20260923
+DTEND;VALUE=DATE:20260924
+SUMMARY:Water Snake Plant (example)
+DESCRIPTION:300 ml — about 1 1/4 cups\nSoak the soil\, then let it dry ou
+ t completely before the next watering\nLight: Tolerates low light\, happie
+ st in medium indirect\nWhere: Bedroom corner\nWatch for: Mushy base or lea
+ ves falling over = overwatered. Wrinkled leaves = under-watered.\nNotes: T
+ he most common way to kill this plant is kindness — when in doubt\, skip
+  a watering.\nLog it: https://nsfogg.github.io/plant_watering/#today
+TRANSP:TRANSPARENT
+BEGIN:VALARM
+TRIGGER;RELATED=START:PT8H
+ACTION:DISPLAY
+DESCRIPTION:Water Snake Plant (example) — 300 ml — about 1 1/4 cups
+END:VALARM
+END:VEVENT
+BEGIN:VEVENT
+UID:example-snake-plant-20261014@plant-care
+DTSTAMP:20260919T134632Z
+DTSTART;VALUE=DATE:20261014
+DTEND;VALUE=DATE:20261015
+SUMMARY:Water Snake Plant (example)
+DESCRIPTION:300 ml — about 1 1/4 cups\nSoak the soil\, then let it dry ou
+ t completely before the next watering\nLight: Tolerates low light\, happie
+ st in medium indirect\nWhere: Bedroom corner\nWatch for: Mushy base or lea
+ ves falling over = overwatered. Wrinkled leaves = under-watered.\nNotes: T
+ he most common way to kill this plant is kindness — when in doubt\, skip
+  a watering.\nLog it: https://nsfogg.github.io/plant_watering/#today
+TRANSP:TRANSPARENT
+BEGIN:VALARM
+TRIGGER;RELATED=START:PT8H
+ACTION:DISPLAY
+DESCRIPTION:Water Snake Plant (example) — 300 ml — about 1 1/4 cups
+END:VALARM
+END:VEVENT
+BEGIN:VEVENT
+UID:example-snake-plant-20261104@plant-care
+DTSTAMP:20260919T134632Z
+DTSTART;VALUE=DATE:20261104
+DTEND;VALUE=DATE:20261105
+SUMMARY:Water Snake Plant (example)
+DESCRIPTION:300 ml — about 1 1/4 cups\nSoak the soil\, then let it dry ou
+ t completely before the next watering\nLight: Tolerates low light\, happie
+ st in medium indirect\nWhere: Bedroom corner\nWatch for: Mushy base or lea
+ ves falling over = overwatered. Wrinkled leaves = under-watered.\nNotes: T
+ he most common way to kill this plant is kindness — when in doubt\, skip
+  a watering.\nLog it: https://nsfogg.github.io/plant_watering/#today
+TRANSP:TRANSPARENT
+BEGIN:VALARM
+TRIGGER;RELATED=START:PT8H
+ACTION:DISPLAY
+DESCRIPTION:Water Snake Plant (example) — 300 ml — about 1 1/4 cups
+END:VALARM
+END:VEVENT
+BEGIN:VEVENT
+UID:example-snake-plant-20261209@plant-care
+DTSTAMP:20260919T134632Z
+DTSTART;VALUE=DATE:20261209
+DTEND;VALUE=DATE:20261210
+SUMMARY:Water Snake Plant (example)
+DESCRIPTION:300 ml — about 1 1/4 cups\nSoak the soil\, then let it dry ou
+ t completely before the next watering\nLight: Tolerates low light\, happie
+ st in medium indirect\nWhere: Bedroom corner\nWatch for: Mushy base or lea
+ ves falling over = overwatered. Wrinkled leaves = under-watered.\nNotes: T
+ he most common way to kill this plant is kindness — when in doubt\, skip
+  a watering.\nLog it: https://nsfogg.github.io/plant_watering/#today
+TRANSP:TRANSPARENT
+BEGIN:VALARM
+TRIGGER;RELATED=START:PT8H
+ACTION:DISPLAY
+DESCRIPTION:Water Snake Plant (example) — 300 ml — about 1 1/4 cups
+END:VALARM
+END:VEVENT
+BEGIN:VEVENT
+UID:example-snake-plant-20270113@plant-care
+DTSTAMP:20260919T134632Z
+DTSTART;VALUE=DATE:20270113
+DTEND;VALUE=DATE:20270114
+SUMMARY:Water Snake Plant (example)
+DESCRIPTION:300 ml — about 1 1/4 cups\nSoak the soil\, then let it dry ou
+ t completely before the next watering\nLight: Tolerates low light\, happie
+ st in medium indirect\nWhere: Bedroom corner\nWatch for: Mushy base or lea
+ ves falling over = overwatered. Wrinkled leaves = under-watered.\nNotes: T
+ he most common way to kill this plant is kindness — when in doubt\, skip
+  a watering.\nLog it: https://nsfogg.github.io/plant_watering/#today
+TRANSP:TRANSPARENT
+BEGIN:VALARM
+TRIGGER;RELATED=START:PT8H
+ACTION:DISPLAY
+DESCRIPTION:Water Snake Plant (example) — 300 ml — about 1 1/4 cups
+END:VALARM
+END:VEVENT
+BEGIN:VEVENT
+UID:example-snake-plant-20270217@plant-care
+DTSTAMP:20260919T134632Z
+DTSTART;VALUE=DATE:20270217
+DTEND;VALUE=DATE:20270218
+SUMMARY:Water Snake Plant (example)
+DESCRIPTION:300 ml — about 1 1/4 cups\nSoak the soil\, then let it dry ou
+ t completely before the next watering\nLight: Tolerates low light\, happie
+ st in medium indirect\nWhere: Bedroom corner\nWatch for: Mushy base or lea
+ ves falling over = overwatered. Wrinkled leaves = under-watered.\nNotes: T
+ he most common way to kill this plant is kindness — when in doubt\, skip
+  a watering.\nLog it: https://nsfogg.github.io/plant_watering/#today
+TRANSP:TRANSPARENT
+BEGIN:VALARM
+TRIGGER;RELATED=START:PT8H
+ACTION:DISPLAY
+DESCRIPTION:Water Snake Plant (example) — 300 ml — about 1 1/4 cups
+END:VALARM
+END:VEVENT
+END:VCALENDAR

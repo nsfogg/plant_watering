@@ -1,0 +1,118 @@
+name: Daily watering text
+
+on:
+  schedule:
+    # Hourly, because GitHub cron only speaks UTC. notify.py sends on the first
+    # run at or after the hour you picked in Settings, at most once a day — so
+    # the text lands at the right local time all year without you touching this
+    # file when the clocks change, and a run that GitHub delays or skips is
+    # simply picked up by the next hour.
+    # Minute 7 rather than 0: the top of the hour is the busiest, most delayed slot.
+    - cron: '7 * * * *'
+  workflow_dispatch:
+    inputs:
+      today:
+        description: 'Pretend today is this date (YYYY-MM-DD)'
+        required: false
+      dry_run:
+        description: 'Print the message without sending it'
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+
+concurrency:
+  group: watering-notification
+  cancel-in-progress: false
+
+jobs:
+  notify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # Full history so the rebase before pushing the run record cannot
+          # fall outside a shallow clone's boundary.
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: What day is it where the plants are?
+        id: day
+        run: echo "date=$(python scripts/notify.py --print-date)" >> "$GITHUB_OUTPUT"
+
+      - name: Has today's text already gone out?
+        # A second, push-free record of "sent today". The run record commit can
+        # fail (a protected default branch), and without this the next hourly
+        # run would check out a clean tree and text you all over again.
+        id: marker
+        uses: actions/cache/restore@v4
+        with:
+          path: .sent-today
+          key: watering-sent-${{ steps.day.outputs.date }}
+
+      - name: Work out who needs water, and text me
+        id: send
+        if: steps.marker.outputs.cache-hit != 'true' 
+        env:
+          # Twilio (route 1) — set all four to use it
+          TWILIO_ACCOUNT_SID: ${{ secrets.TWILIO_ACCOUNT_SID }}
+          TWILIO_AUTH_TOKEN: ${{ secrets.TWILIO_AUTH_TOKEN }}
+          TWILIO_FROM: ${{ secrets.TWILIO_FROM }}
+          SMS_TO: ${{ secrets.SMS_TO }}
+          # Email-to-SMS gateway (route 2, free) — set all four to use it
+          SMTP_HOST: ${{ secrets.SMTP_HOST }}
+          SMTP_PORT: ${{ secrets.SMTP_PORT }}
+          SMTP_USER: ${{ secrets.SMTP_USER }}
+          SMTP_PASS: ${{ secrets.SMTP_PASS }}
+          SMS_TO_EMAIL: ${{ secrets.SMS_TO_EMAIL }}
+          SMS_SUBJECT: ${{ secrets.SMS_SUBJECT }}
+          # Inputs go through the environment, never into the script text:
+          # interpolating them directly would let a dispatch input run as shell.
+          INPUT_TODAY: ${{ inputs.today }}
+          INPUT_DRY_RUN: ${{ inputs.dry_run }}
+          EVENT_NAME: ${{ github.event_name }}
+        run: |
+          args=()
+          if [ "$INPUT_DRY_RUN" = "true" ]; then args+=(--dry-run); fi
+          if [ -n "$INPUT_TODAY" ]; then args+=(--today "$INPUT_TODAY"); fi
+          if [ "$EVENT_NAME" = "schedule" ]; then args+=(--scheduled); fi
+          python scripts/notify.py "${args[@]}"
+
+      - name: Remember that today's text went out
+        if: steps.send.outputs.sent == 'true'
+        run: mkdir -p .sent-today && date -u > .sent-today/when
+
+      - uses: actions/cache/save@v4
+        if: steps.send.outputs.sent == 'true'
+        with:
+          path: .sent-today
+          key: watering-sent-${{ steps.day.outputs.date }}
+
+      - name: Record the run
+        # Committing the run record doubles as repository activity, which stops
+        # GitHub auto-disabling this schedule after 60 quiet days. It runs even
+        # when the send failed — that is exactly when the heartbeat matters.
+        if: ${{ (success() || failure()) && github.event_name == 'schedule' }}
+        env:
+          BRANCH: ${{ github.ref_name }}
+        run: |
+          if [ -z "$(git status --porcelain data/notify-state.json)" ]; then
+            echo "Nothing to record."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add data/notify-state.json
+          git commit -m "Record watering notification run [skip ci]"
+          # --autostash below: anything else the run happened to touch must not
+          # stop the rebase, or the record (and the 60-day keep-alive) is lost.
+          for attempt in 1 2 3; do
+            git pull --rebase --autostash origin "$BRANCH" && git push origin "HEAD:$BRANCH" && exit 0
+            echo "Push attempt $attempt failed; retrying…"
+            sleep $((attempt * 5))
+          done
+          echo "::warning::Could not push the run record. If the default branch is protected, allow github-actions[bot] to bypass it, or the daily schedule may be auto-disabled after 60 days."

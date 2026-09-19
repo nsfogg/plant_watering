@@ -1,0 +1,62 @@
+name: Deploy site to GitHub Pages
+
+on:
+  push:
+    branches: [main]
+    paths-ignore:
+      - 'README.md'
+      - 'tests/**'
+      - '.github/workflows/notify.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Let a running deploy finish; queue at most one more.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - uses: actions/configure-pages@v5
+
+      - name: Stage the site
+        # Publish only what the browser needs — not the tests, scripts,
+        # package.json or README, which would otherwise be served too.
+        run: |
+          mkdir -p _site
+          cp index.html manifest.webmanifest sw.js .nojekyll _site/
+          cp -r assets data _site/
+          find _site -name '__pycache__' -type d -prune -exec rm -rf {} +
+
+          # Stamp the service worker so this deploy gets its own cache and
+          # nobody is left running the previous version's code.
+          sed -i "s/^const BUILD = 'dev';/const BUILD = '${GITHUB_SHA::12}';/" _site/sw.js
+          grep -n "^const BUILD" _site/sw.js
+
+          # Regenerate the calendar feed from the data being published.
+          python scripts/make_ics.py --data data/plants.json --out _site/data/watering.ics
+
+          echo "Published files:" && find _site -type f | sort
+
+      - name: Upload site
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: '_site'
+
+      - id: deployment
+        uses: actions/deploy-pages@v4

@@ -1,0 +1,15 @@
+{
+  "name": "Plant Care — watering tracker",
+  "short_name": "Plant Care",
+  "description": "Track every plant, how much water it needs, and what day to water it next.",
+  "start_url": "./index.html#today",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#f6f7f3",
+  "theme_color": "#2f6d4f",
+  "icons": [
+    { "src": "assets/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" },
+    { "src": "assets/icon-maskable.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "maskable" }
+  ]
+}
