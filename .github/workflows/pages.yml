@@ -28,6 +28,10 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
       - uses: actions/configure-pages@v5
 
       - name: Stage the site
@@ -38,6 +42,15 @@ jobs:
           cp index.html manifest.webmanifest sw.js .nojekyll _site/
           cp -r assets data _site/
           find _site -name '__pycache__' -type d -prune -exec rm -rf {} +
+
+          # Stamp the service worker so this deploy gets its own cache and
+          # nobody is left running the previous version's code.
+          sed -i "s/^const BUILD = 'dev';/const BUILD = '${GITHUB_SHA::12}';/" _site/sw.js
+          grep -n "^const BUILD" _site/sw.js
+
+          # Regenerate the calendar feed from the data being published.
+          python scripts/make_ics.py --data data/plants.json --out _site/data/watering.ics
+
           echo "Published files:" && find _site -type f | sort
 
       - name: Upload site

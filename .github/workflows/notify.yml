@@ -40,7 +40,23 @@ jobs:
         with:
           python-version: '3.12'
 
+      - name: What day is it where the plants are?
+        id: day
+        run: echo "date=$(python scripts/notify.py --print-date)" >> "$GITHUB_OUTPUT"
+
+      - name: Has today's text already gone out?
+        # A second, push-free record of "sent today". The run record commit can
+        # fail (a protected default branch), and without this the next hourly
+        # run would check out a clean tree and text you all over again.
+        id: marker
+        uses: actions/cache/restore@v4
+        with:
+          path: .sent-today
+          key: watering-sent-${{ steps.day.outputs.date }}
+
       - name: Work out who needs water, and text me
+        id: send
+        if: steps.marker.outputs.cache-hit != 'true' 
         env:
           # Twilio (route 1) — set all four to use it
           TWILIO_ACCOUNT_SID: ${{ secrets.TWILIO_ACCOUNT_SID }}
@@ -65,6 +81,16 @@ jobs:
           if [ -n "$INPUT_TODAY" ]; then args+=(--today "$INPUT_TODAY"); fi
           if [ "$EVENT_NAME" = "schedule" ]; then args+=(--scheduled); fi
           python scripts/notify.py "${args[@]}"
+
+      - name: Remember that today's text went out
+        if: steps.send.outputs.sent == 'true'
+        run: mkdir -p .sent-today && date -u > .sent-today/when
+
+      - uses: actions/cache/save@v4
+        if: steps.send.outputs.sent == 'true'
+        with:
+          path: .sent-today
+          key: watering-sent-${{ steps.day.outputs.date }}
 
       - name: Record the run
         # Committing the run record doubles as repository activity, which stops

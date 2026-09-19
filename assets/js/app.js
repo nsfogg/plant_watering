@@ -3,7 +3,7 @@
  */
 
 import {
-  store, connection, publish, testConnection, newId, DATA_PATH,
+  store, connection, publish, testConnection, newId, storageAvailable, DATA_PATH,
 } from './store.js';
 import { fileToDataUrl, dataUrlBytes } from './images.js';
 import {
@@ -69,6 +69,15 @@ function flash(message, kind = 'info', ms = 4000) {
   if (ms) flash.timer = setTimeout(() => { bar.hidden = true; }, ms);
 }
 
+function statusText(st) {
+  return {
+    overdue: st.daysOverdue === 1 ? 'overdue by 1 day' : `overdue by ${st.daysOverdue} days`,
+    today: 'water today',
+    soon: st.daysUntil === 1 ? 'water tomorrow' : `water in ${st.daysUntil} days`,
+    ok: `water in ${st.daysUntil} days`,
+  }[st.status];
+}
+
 function statusBadge(st) {
   const label = {
     overdue: st.daysOverdue === 1 ? 'Overdue 1 day' : `Overdue ${st.daysOverdue} days`,
@@ -93,7 +102,13 @@ function setView(name, { push = true } = {}) {
     window.history.pushState({ view: name }, '', `#${name}`);
   }
   render();
-  document.getElementById('main').scrollIntoView({ block: 'start', behavior: 'auto' });
+  // scrollIntoView would park the heading underneath the sticky header.
+  window.scrollTo({ top: 0, behavior: 'auto' });
+  // Keyboard users land on the heading of the view they just opened.
+  const heading = $(`#view-${name} h2`);
+  if (heading && document.activeElement && document.activeElement.classList.contains('tab')) {
+    heading.focus({ preventScroll: true });
+  }
 }
 
 /* ── Today ───────────────────────────────────────────── */
@@ -110,22 +125,43 @@ function renderToday() {
     .filter((r) => r.daysUntil > 0 && r.daysUntil <= 7)
     .sort((a, b) => a.daysUntil - b.daysUntil || a.plant.name.localeCompare(b.plant.name));
 
+  const on = (n) => (n > 0 ? ' is-on' : '');
   $('#today-stats').innerHTML = [
     `<div class="stat ok"><div class="num">${plants.length}</div><div class="lbl">plants tracked</div></div>`,
-    `<div class="stat due"><div class="num">${due.length}</div><div class="lbl">need water today</div></div>`,
-    `<div class="stat alert"><div class="num">${overdue.length}</div><div class="lbl">overdue</div></div>`,
+    `<div class="stat due${on(due.length)}"><div class="num">${due.length}</div><div class="lbl">need water today</div></div>`,
+    `<div class="stat alert${on(overdue.length)}"><div class="num">${overdue.length}</div><div class="lbl">overdue</div></div>`,
     `<div class="stat"><div class="num">${upcoming.length}</div><div class="lbl">coming up this week</div></div>`,
   ].join('');
 
   $('#today-due').innerHTML = due.length
-    ? due.map((r) => careItem(r, true)).join('')
+    ? (due.length > 1
+        ? `<div class="btn-row" style="margin:0 0 .2rem"><button class="btn" data-water-all="1">Mark all ${due.length} as watered</button></div>`
+        : '') + due.map((r) => careItem(r, true)).join('')
     : (plants.length
       ? `<div class="empty">🎉 Nothing needs water today. Next up: ${esc(nextUpText(rows))}</div>`
-      : `<div class="empty">No plants yet. <button class="btn small" data-go="add">Add your first plant</button></div>`);
+      : welcomePanel());
 
   $('#today-upcoming').innerHTML = upcoming.length
     ? upcoming.map((r) => careItem(r, false)).join('')
     : '<div class="empty">Nothing else due in the next 7 days.</div>';
+}
+
+/** First run: say what this is and what to do, rather than showing four zeros. */
+function welcomePanel() {
+  return `
+    <div class="empty welcome">
+      <h3>🌿 Welcome — let's get your plants in here</h3>
+      <p>Keep every plant's watering schedule, care notes and photos in one place, and get a reminder on the day each one needs water.</p>
+      <ol>
+        <li><strong>Add a plant</strong> — name and how often it needs water is enough to start.</li>
+        <li><strong>Connect GitHub</strong> in Settings so your plants are saved for the long term.</li>
+        <li><strong>Turn on reminders</strong> — subscribe your phone's calendar, or add the text-message secrets.</li>
+      </ol>
+      <div class="btn-row">
+        <button class="btn primary" data-go="add">Add your first plant</button>
+        <button class="btn" data-go="settings">Open settings</button>
+      </div>
+    </div>`;
 }
 
 function nextUpText(rows) {
@@ -135,7 +171,7 @@ function nextUpText(rows) {
   return `${r.plant.name}, ${relativeDay(r.dueDate)}.`;
 }
 
-function careItem(row, actionable, waterDate = null) {
+function careItem(row, actionable, waterDate = null, asOf = null) {
   const p = row.plant;
   const src = photoSrc(p);
   const thumb = src
@@ -147,7 +183,7 @@ function careItem(row, actionable, waterDate = null) {
     <article class="care-item ${row.status}">
       ${thumb}
       <div class="care-main">
-        <h4>${esc(p.name)} ${statusBadge(row)}</h4>
+        <h4>${esc(p.name)} ${asOf ? `<span class="badge soon">Scheduled</span>` : statusBadge(row)}</h4>
         <div class="care-meta">${esc([p.species, p.location].filter(Boolean).join(' · '))}${p.location || p.species ? ' · ' : ''}due ${esc(prettyDate(row.dueDate))}</div>
         <div class="care-instructions">💧 ${instructions}</div>
       </div>
@@ -187,10 +223,11 @@ function renderGarden() {
       ? `<img class="photo" src="${esc(src)}" alt="${esc(p.name)}, healthy" loading="lazy">`
       : `<div class="photo" aria-hidden="true">${PLACEHOLDER}</div>`;
     return `
-      <button class="plant-card card" data-detail="${esc(p.id)}">
+      <button class="plant-card card" data-detail="${esc(p.id)}"
+              aria-label="${esc(`${p.name}${p.species ? ', ' + p.species : ''} — ${p.archived ? 'archived' : statusText(st)}. Open details.`)}">
         ${photo}
         <div class="body">
-          <h3>${esc(p.name)}</h3>
+          <p class="title">${esc(p.name)}</p>
           ${p.species ? `<div class="species">${esc(p.species)}</div>` : ''}
           <div>${p.archived ? '<span class="badge archived">Archived</span>' : statusBadge(st)}</div>
           <div class="facts">
@@ -237,8 +274,7 @@ function renderCalendar() {
   const { y, m } = currentMonth();
   const t = today();
   const first = new Date(y, m - 1, 1);
-  const label = first.toLocaleDateString(undefined, { month: 'long', year: 'numeric' });
-  $('#cal-label').textContent = label;
+  $('#cal-label').textContent = first.toLocaleDateString(undefined, { month: 'long', year: 'numeric' });
 
   const startPad = first.getDay();
   const gridStart = new Date(y, m - 1, 1 - startPad);
@@ -246,33 +282,66 @@ function renderCalendar() {
   for (let i = 0; i < 42; i += 1) {
     cells.push(new Date(gridStart.getFullYear(), gridStart.getMonth(), gridStart.getDate() + i));
   }
-  const startISO = isoOf(cells[0]);
-  const endISO = isoOf(cells[cells.length - 1]);
-  const map = scheduleMap(startISO, endISO);
+  const map = scheduleMap(isoOf(cells[0]), isoOf(cells[41]));
 
-  $('#cal-grid').innerHTML = cells.map((date) => {
-    const iso = isoOf(date);
-    const inMonth = date.getMonth() === m - 1;
-    const list = map.get(iso) || [];
-    const shown = list.slice(0, 3);
-    const extra = list.length - shown.length;
-    const classes = ['cal-cell'];
-    if (!inMonth) classes.push('other-month');
-    if (iso === t) classes.push('today');
-    if (iso === ui.calSelected) classes.push('selected');
-    return `
+  // One cell is tabbable (the selection, else today, else the 1st): arrow keys
+  // move between days, so the calendar costs one Tab stop rather than 42.
+  const inMonthISOs = cells.filter((d) => d.getMonth() === m - 1).map(isoOf);
+  const focusISO = (ui.calSelected && inMonthISOs.includes(ui.calSelected))
+    ? ui.calSelected
+    : (inMonthISOs.includes(t) ? t : inMonthISOs[0]);
+
+  let html = '';
+  for (let week = 0; week < 6; week += 1) {
+    html += '<div class="cal-row" role="row">';
+    for (let day = 0; day < 7; day += 1) {
+      const date = cells[week * 7 + day];
+      const iso = isoOf(date);
+      const list = map.get(iso) || [];
+      const shown = list.slice(0, 3);
+      const extra = list.length - shown.length;
+      const classes = ['cal-cell'];
+      if (date.getMonth() !== m - 1) classes.push('other-month');
+      if (iso === t) classes.push('today');
+      if (iso === ui.calSelected) classes.push('selected');
+      const label = `${prettyDate(iso, { weekday: 'long', month: 'long', day: 'numeric' })}: `
+        + (list.length ? `${list.length} plant${list.length === 1 ? '' : 's'} to water — ${list.map((e) => e.plant.name).join(', ')}` : 'nothing to water');
+      html += `
       <button class="${classes.join(' ')}" data-day="${iso}" role="gridcell"
-              aria-label="${esc(prettyDate(iso, { weekday: 'long', month: 'long', day: 'numeric' }))}: ${list.length} plant${list.length === 1 ? '' : 's'} to water">
+              tabindex="${iso === focusISO ? '0' : '-1'}"
+              aria-selected="${iso === ui.calSelected ? 'true' : 'false'}"
+              aria-label="${esc(label)}">
         <span class="daynum">${date.getDate()}</span>
-        <span class="chips">
+        <span class="chips" aria-hidden="true">
           ${shown.map((e) => `<span class="cal-chip${e.overdue ? ' overdue' : ''}">${esc(e.plant.name)}</span>`).join('')}
           ${extra > 0 ? `<span class="cal-chip more">+${extra} more</span>` : ''}
         </span>
+        <span class="cal-dots" aria-hidden="true">
+          ${list.slice(0, 6).map((e) => `<span class="cal-dot${e.overdue ? ' overdue' : ''}"></span>`).join('')}
+          ${list.length > 6 ? `<span class="cal-count">+${list.length - 6}</span>` : ''}
+        </span>
       </button>`;
-  }).join('');
+    }
+    html += '</div>';
+  }
+  $('#cal-grid').innerHTML = html;
 
   renderCalDetail(map);
   renderAgenda();
+}
+
+/** Arrow keys walk the grid; the month flips when you step off the edge. */
+function moveCalendarFocus(fromISO, deltaDays) {
+  const target = addDays(fromISO, deltaDays);
+  const d = parseISO(target);
+  const { y, m } = currentMonth();
+  if (d.getFullYear() !== y || d.getMonth() !== m - 1) {
+    ui.calMonth = { y: d.getFullYear(), m: d.getMonth() + 1 };
+  }
+  ui.calSelected = target;
+  renderCalendar();
+  const cell = document.querySelector(`[data-day="${target}"]`);
+  if (cell) cell.focus({ preventScroll: true });
 }
 
 function isoOf(date) {
@@ -287,16 +356,18 @@ function renderCalDetail(map) {
   if (!ui.calSelected) { box.innerHTML = ''; return; }
   const list = map.get(ui.calSelected) || [];
   const t = today();
-  const isToday = ui.calSelected === t;
+  const offset = daysBetween(t, ui.calSelected);
+  const isFuture = offset > 0;
   box.innerHTML = `
     <div class="card panel">
       <h3>${esc(prettyDate(ui.calSelected, { weekday: 'long', month: 'long', day: 'numeric' }))} <span class="muted">(${esc(relativeDay(ui.calSelected))})</span></h3>
       ${list.length ? `<div class="care-list">${list.map((e) => {
-        const row = { plant: e.plant, ...statusFor(e.plant, t) };
-        const past = daysBetween(t, ui.calSelected) < 0;
-        // A past day logs the watering on that day, not today.
-        return careItem(row, isToday || past, past ? ui.calSelected : null);
+        // A future day is described as it will be then, not as it is today.
+        const row = { plant: e.plant, ...statusFor(e.plant, isFuture ? ui.calSelected : t) };
+        if (isFuture) { row.status = 'today'; row.daysUntil = 0; row.daysOverdue = 0; row.dueDate = ui.calSelected; }
+        return careItem(row, !isFuture, offset < 0 ? ui.calSelected : null, isFuture ? ui.calSelected : null);
       }).join('')}</div>` : '<p class="muted">Nothing scheduled for this day.</p>'}
+      ${isFuture ? '<p class="hint">Planned — you can log this once the day comes.</p>' : ''}
     </div>`;
 }
 
@@ -326,7 +397,7 @@ function openDetail(id) {
     if (!list.length) return '';
     return `<div>
       <h4>${esc(title)}</h4>
-      ${list.map((src, i) => `<img src="${esc(src)}" alt="${esc(p.name)} — ${esc(title)} ${i + 1}" data-zoom="${esc(src)}" loading="lazy">`).join('')}
+      ${list.map((src, i) => `<button type="button" class="photo-zoom" data-zoom="${esc(src)}" aria-label="Enlarge ${esc(p.name)} — ${esc(title)} photo ${i + 1}"><img src="${esc(src)}" alt="${esc(p.name)} — ${esc(title)} ${i + 1}" loading="lazy"></button>`).join('')}
       ${note ? `<p class="hint">${esc(note)}</p>` : ''}
     </div>`;
   };
@@ -334,7 +405,7 @@ function openDetail(id) {
   const fact = (k, v) => (v ? `<div><span class="k">${esc(k)}</span><span class="v">${esc(v)}</span></div>` : '');
 
   $('#plant-dialog-body').innerHTML = `
-    <h2>${esc(p.name)} ${p.archived ? '<span class="badge archived">Archived</span>' : statusBadge(st)}</h2>
+    <h2 id="plant-dialog-title">${esc(p.name)} ${p.archived ? '<span class="badge archived">Archived</span>' : statusBadge(st)}</h2>
     ${p.species ? `<p class="muted"><em>${esc(p.species)}</em>${p.location ? ' · ' + esc(p.location) : ''}</p>` : (p.location ? `<p class="muted">${esc(p.location)}</p>` : '')}
 
     <div class="detail-photos">
@@ -367,9 +438,22 @@ function openDetail(id) {
       <button class="btn primary" data-water="${esc(p.id)}">Mark watered today</button>
       <button class="btn" data-undo="${esc(p.id)}">Undo last watering</button>
       <button class="btn" data-edit="${esc(p.id)}">Edit</button>
+      <button class="btn ghost" data-print="${esc(p.id)}">Print care sheet</button>
       <button class="btn ghost" data-delete="${esc(p.id)}">Delete</button>
+    </div>
+    <div class="water-on">
+      <label for="water-on-date" class="hint">Watered it on another day?</label>
+      <input type="date" id="water-on-date" max="${esc(t)}" value="${esc(addDays(t, -1))}">
+      <button class="btn small" data-water-on="${esc(p.id)}">Log it</button>
     </div>`;
-  $('#plant-dialog').showModal();
+  const dialog = $('#plant-dialog');
+  dialog.showModal();
+  // Without this the browser focuses the first button (at the very bottom) and
+  // scrolls there, hiding the plant's name, photos and status.
+  const body = $('#plant-dialog-body');
+  body.scrollTop = 0;
+  dialog.scrollTop = 0;
+  body.focus({ preventScroll: true });
 }
 
 /* ── Add / edit form ─────────────────────────────────── */
@@ -519,6 +603,32 @@ async function handlePhotoPick(kind, input) {
   }
 }
 
+/* ── Theme ───────────────────────────────────────────── */
+
+const THEME_KEY = 'plantcare.theme.v1';
+
+function applyTheme(mode) {
+  if (mode === 'light' || mode === 'dark') document.documentElement.dataset.theme = mode;
+  else delete document.documentElement.dataset.theme;
+  const btn = $('#theme-toggle');
+  if (btn) {
+    btn.textContent = mode === 'light' ? '☀️' : (mode === 'dark' ? '🌙' : '🌗');
+    btn.title = `Theme: ${mode || 'match my device'} — click to change`;
+  }
+}
+
+function currentTheme() {
+  try { return window.localStorage.getItem(THEME_KEY) || ''; } catch { return ''; }
+}
+
+function cycleTheme() {
+  const order = ['', 'light', 'dark'];
+  const next = order[(order.indexOf(currentTheme()) + 1) % order.length];
+  try { window.localStorage.setItem(THEME_KEY, next); } catch { /* ignore */ }
+  applyTheme(next);
+  flash(`Theme: ${next || 'matching your device'}.`, 'info', 2500);
+}
+
 /* ── Publishing ──────────────────────────────────────── */
 
 const AUTO_KEY = 'plantcare.autopublish.v1';
@@ -614,6 +724,52 @@ function renderSyncState() {
   }
 }
 
+/**
+ * Show whether the daily text is actually working.
+ *
+ * The notifier commits data/notify-state.json on every run, and Pages serves
+ * it, so the site can simply read it — no API, no secrets, no guessing.
+ */
+async function renderNotifyStatus() {
+  const box = $('#notify-status');
+  const list = $('#setup-checklist');
+  if (!box || !list) return;
+
+  let state = null;
+  try {
+    const res = await fetch('data/notify-state.json', { cache: 'no-store' });
+    if (res.ok) state = await res.json();
+  } catch { /* offline, or it has never run */ }
+
+  if (!state || !state.lastRun) {
+    box.className = 'sync-state';
+    box.innerHTML = '<span class="dot"></span>The daily check has not run yet. It runs hourly once this is on GitHub\'s default branch.';
+  } else if (state.lastSent) {
+    const how = state.transport === 'twilio' ? 'Twilio' : 'your carrier\'s email gateway';
+    const plants = Array.isArray(state.lastPlants) && state.lastPlants.length
+      ? ` — ${state.lastPlants.join(', ')}` : '';
+    box.className = 'sync-state clean';
+    box.innerHTML = `<span class="dot"></span>Last text sent <strong>${esc(prettyDate(state.lastSent))}</strong> via ${esc(how)}${esc(plants)}.`;
+  } else if (state.transport === 'none') {
+    box.className = 'sync-state dirty';
+    box.innerHTML = `<span class="dot"></span>The check ran on ${esc(prettyDate(state.lastRun))} and found plants due, but no text could be sent — the secrets are not set up yet.`;
+  } else {
+    box.className = 'sync-state clean';
+    box.innerHTML = `<span class="dot"></span>Checked ${esc(prettyDate(state.lastRun))} — nothing was due, so no text was sent.`;
+  }
+
+  const steps = [
+    [store.plants().length > 0, 'Add your plants', 'Add at least one plant'],
+    [connection.isReady(), 'GitHub connected, so this browser can publish', 'Connect GitHub below so your plants are saved for the long term'],
+    [!store.dirty, 'Everything here is published', 'Publish your unpublished changes'],
+    [Boolean(state && state.lastRun), 'The daily check is running', 'Push this to your default branch so the daily check starts running'],
+    [Boolean(state && state.lastSent), 'Text messages are working', 'Add the SMS secrets (README section 3) — or just subscribe your phone\'s calendar below'],
+  ];
+  list.innerHTML = steps.map(([done, yes, no]) => `
+    <li class="${done ? 'done' : 'todo'}"><span class="mark" aria-hidden="true">${done ? '✓' : '○'}</span>
+    <span>${esc(done ? yes : no)}</span></li>`).join('');
+}
+
 async function doPublish({ silent = false } = {}) {
   const btn = $('#btn-publish');
   const cfg = connection.load();
@@ -694,13 +850,32 @@ function downloadJson() {
 
 /* ── render dispatch ─────────────────────────────────── */
 
+/**
+ * Re-render without stranding the keyboard: remember which control had focus
+ * and give it back to the equivalent element afterwards.
+ */
+function renderKeepingFocus() {
+  const active = document.activeElement;
+  const key = active && active.dataset
+    ? ['water', 'detail', 'edit', 'undo', 'day'].map((k) => (active.dataset[k] ? `${k}:${active.dataset[k]}` : null)).find(Boolean)
+    : null;
+  render();
+  if (!key) return;
+  const [kind, value] = key.split(/:(.*)/s);
+  const next = document.querySelector(`[data-${kind}="${CSS.escape(value)}"]`);
+  if (next) next.focus({ preventScroll: true });
+}
+
 function render() {
   if (ui.view === 'today') renderToday();
   else if (ui.view === 'garden') renderGarden();
   else if (ui.view === 'calendar') renderCalendar();
-  else if (ui.view === 'settings') renderSettings();
+  else if (ui.view === 'settings') { renderSettings(); renderNotifyStatus(); }
   renderSyncState();
   renderPublishBar();
+  document.body.classList.toggle('has-publish-bar', store.dirty);
+  const tabs = $('.tabs');
+  if (tabs) tabs.classList.toggle('is-scrollable', tabs.scrollWidth - tabs.clientWidth > 4);
 }
 
 /* ── events ──────────────────────────────────────────── */
@@ -719,7 +894,7 @@ function wire() {
 
   // Delegated clicks: plant actions live inside re-rendered HTML.
   document.addEventListener('click', (event) => {
-    const el = event.target.closest('[data-water],[data-detail],[data-edit],[data-delete],[data-undo],[data-go],[data-day],[data-zoom],[data-remove-photo]');
+    const el = event.target.closest('[data-water],[data-water-on],[data-water-all],[data-detail],[data-edit],[data-delete],[data-undo],[data-go],[data-day],[data-zoom],[data-remove-photo],[data-print]');
     if (!el) return;
     try {
       handleAction(el);
@@ -741,7 +916,31 @@ function wire() {
         autoPublish();
       }
       $('#plant-dialog').close();
+      renderKeepingFocus();
+    } else if (el.dataset.waterOn) {
+      const when = $('#water-on-date').value;
+      if (!when || daysBetween(today(), when) > 0) {
+        flash('Pick a day that has already happened.', 'warn');
+        return;
+      }
+      const plant = store.markWatered(el.dataset.waterOn, when);
+      if (plant) {
+        flash(`${plant.name} logged as watered on ${prettyDate(when)}. Next: ${prettyDate(statusFor(plant, today()).dueDate)}.`);
+        autoPublish();
+      }
+      $('#plant-dialog').close();
       render();
+    } else if (el.dataset.waterAll) {
+      const t = today();
+      const rows = duePlants(store.plants(), t);
+      rows.forEach((row) => store.markWatered(row.plant.id, t));
+      if (rows.length) {
+        flash(`Logged ${rows.length} plant${rows.length === 1 ? '' : 's'} as watered today.`);
+        autoPublish();
+      }
+      render();
+    } else if (el.dataset.print) {
+      window.print();
     } else if (el.dataset.undo) {
       const plant = store.undoWatered(el.dataset.undo);
       flash(plant ? `Undid the last watering for ${plant.name}.` : 'Nothing to undo.');
@@ -810,6 +1009,33 @@ function wire() {
       setView('garden');
     } catch (err) {
       flash(err.message, 'error', 10000);
+    }
+  });
+
+  $('#theme-toggle').addEventListener('click', cycleTheme);
+
+  // Arrow keys walk the calendar; one Tab stop for the whole grid.
+  $('#cal-grid').addEventListener('keydown', (event) => {
+    const cell = event.target.closest('[data-day]');
+    if (!cell) return;
+    const moves = { ArrowLeft: -1, ArrowRight: 1, ArrowUp: -7, ArrowDown: 7 };
+    if (moves[event.key] !== undefined) {
+      event.preventDefault();
+      moveCalendarFocus(cell.dataset.day, moves[event.key]);
+    } else if (event.key === 'Home' || event.key === 'End') {
+      event.preventDefault();
+      const d = parseISO(cell.dataset.day);
+      moveCalendarFocus(cell.dataset.day, event.key === 'Home' ? -d.getDay() : 6 - d.getDay());
+    }
+  });
+
+  $('#btn-copy-ics').addEventListener('click', async () => {
+    const url = new URL('data/watering.ics', window.location.href).href;
+    try {
+      await navigator.clipboard.writeText(url);
+      flash('Subscription link copied. In your calendar app choose "Add subscription calendar" and paste it.', 'info', 9000);
+    } catch {
+      window.prompt('Copy this link into your calendar app:', url);
     }
   });
 
@@ -937,8 +1163,13 @@ function registerServiceWorker() {
 }
 
 async function boot() {
+  applyTheme(currentTheme());
   wire();
   registerServiceWorker();
+  if (!storageAvailable()) {
+    flash('This browser is blocking site storage (private browsing, or cookies turned off), '
+      + 'so changes cannot be saved here. Reading works fine.', 'warn', 12000);
+  }
   fillForm(null);
   await store.init();
   if (store.loadError) flash(store.loadError, 'warn', 8000);

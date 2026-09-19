@@ -18,16 +18,17 @@
   <div class="wrap header-inner">
     <div class="brand">
       <span class="brand-mark" aria-hidden="true">🌿</span>
-      <div>
+      <div class="brand-text">
         <h1>Plant Care</h1>
         <p class="brand-sub">Water the right plant, on the right day, with the right amount.</p>
       </div>
+      <button class="theme-toggle" id="theme-toggle" title="Switch theme" aria-label="Switch between light and dark">🌗</button>
     </div>
     <nav class="tabs" aria-label="Sections">
       <button class="tab" data-view="today" aria-current="page">Today</button>
-      <button class="tab" data-view="garden">My Plants</button>
+      <button class="tab" data-view="garden">Plants</button>
       <button class="tab" data-view="calendar">Calendar</button>
-      <button class="tab" data-view="add">Add Plant</button>
+      <button class="tab" data-view="add">Add</button>
       <button class="tab" data-view="settings">Settings</button>
     </nav>
   </div>
@@ -50,7 +51,7 @@
   <!-- ───────────────────────── Today ───────────────────────── -->
   <section id="view-today" class="view" aria-labelledby="today-heading">
     <div class="view-head">
-      <h2 id="today-heading">Today <span id="today-date" class="muted"></span></h2>
+      <h2 id="today-heading" tabindex="-1">Today <span id="today-date" class="muted"></span></h2>
       <p class="muted">Everything that needs water now, plus what is coming up this week.</p>
     </div>
     <div id="today-stats" class="stat-row"></div>
@@ -62,7 +63,7 @@
   <!-- ───────────────────────── Garden ───────────────────────── -->
   <section id="view-garden" class="view" aria-labelledby="garden-heading" hidden>
     <div class="view-head">
-      <h2 id="garden-heading">My Plants</h2>
+      <h2 id="garden-heading" tabindex="-1">My Plants</h2>
       <div class="toolbar">
         <label class="field inline">
           <span class="sr-only">Search plants</span>
@@ -85,7 +86,7 @@
   <!-- ──────────────────────── Calendar ──────────────────────── -->
   <section id="view-calendar" class="view" aria-labelledby="calendar-heading" hidden>
     <div class="view-head">
-      <h2 id="calendar-heading">Watering Calendar</h2>
+      <h2 id="calendar-heading" tabindex="-1">Watering Calendar</h2>
       <div class="toolbar calendar-nav">
         <button class="btn ghost" id="cal-prev" aria-label="Previous month">&larr;</button>
         <strong id="cal-label" class="cal-label"></strong>
@@ -93,15 +94,14 @@
         <button class="btn ghost" id="cal-today">This month</button>
       </div>
     </div>
-    <div class="calendar" role="grid" aria-labelledby="calendar-heading">
-      <div class="cal-head" role="row">
-        <span role="columnheader">Sun</span><span role="columnheader">Mon</span>
-        <span role="columnheader">Tue</span><span role="columnheader">Wed</span>
-        <span role="columnheader">Thu</span><span role="columnheader">Fri</span>
-        <span role="columnheader">Sat</span>
+    <div class="calendar">
+      <div class="cal-head" aria-hidden="true">
+        <span>Sun</span><span>Mon</span><span>Tue</span><span>Wed</span>
+        <span>Thu</span><span>Fri</span><span>Sat</span>
       </div>
-      <div id="cal-grid" class="cal-grid"></div>
+      <div id="cal-grid" role="grid" aria-labelledby="calendar-heading"></div>
     </div>
+    <p class="cal-hint">Pick a day to see what needs water. Arrow keys move between days.</p>
     <div id="cal-detail" class="cal-detail"></div>
     <h3 class="section-title">Full schedule (next 30 days)</h3>
     <div id="cal-agenda" class="agenda"></div>
@@ -110,7 +110,7 @@
   <!-- ───────────────────── Add / edit plant ───────────────────── -->
   <section id="view-add" class="view" aria-labelledby="add-heading" hidden>
     <div class="view-head">
-      <h2 id="add-heading">Add a Plant</h2>
+      <h2 id="add-heading" tabindex="-1">Add a Plant</h2>
       <p class="muted">Only the name and watering frequency are required — everything else can come later.</p>
     </div>
 
@@ -206,12 +206,12 @@
         <p class="hint">Pictures are resized in your browser before they are saved, so the files stay small.</p>
         <div class="grid-2">
           <div class="field">
-            <span>Healthy — what it looks like when it is thriving</span>
+            <label for="f-photo-healthy">Healthy — what it looks like when it is thriving</label>
             <input type="file" id="f-photo-healthy" accept="image/*" multiple>
             <div id="preview-healthy" class="thumb-row"></div>
           </div>
           <div class="field">
-            <span>Unhealthy — what trouble looks like</span>
+            <label for="f-photo-unhealthy">Unhealthy — what trouble looks like</label>
             <input type="file" id="f-photo-unhealthy" accept="image/*" multiple>
             <div id="preview-unhealthy" class="thumb-row"></div>
           </div>
@@ -246,7 +246,7 @@
   <!-- ───────────────────────── Settings ───────────────────────── -->
   <section id="view-settings" class="view" aria-labelledby="settings-heading" hidden>
     <div class="view-head">
-      <h2 id="settings-heading">Settings &amp; Saving</h2>
+      <h2 id="settings-heading" tabindex="-1">Settings &amp; Saving</h2>
     </div>
 
     <div class="card panel">
@@ -311,8 +311,19 @@
 
     <div class="card panel">
       <h3>Daily text message</h3>
-      <p>A GitHub Action runs every morning, reads <code>data/plants.json</code>, and texts you the plants due that day with their watering instructions. No server, no cron machine — it runs on GitHub's free scheduled workflows.</p>
-      <p class="hint">Set it up once by adding repository secrets — see <a href="https://github.com/nsfogg/plant_watering#3-daily-text-message" target="_blank" rel="noopener">the setup steps in the README</a>. You can also run it on demand from the repository's Actions tab.</p>
+      <p>A GitHub Action reads <code>data/plants.json</code> every day and texts you the plants due, with their watering instructions. No server, no cron machine — it runs on GitHub's free scheduled workflows.</p>
+      <div id="notify-status" class="sync-state"></div>
+      <ul class="checklist" id="setup-checklist"></ul>
+      <p class="hint">Add the secrets once — see <a href="https://github.com/nsfogg/plant_watering#3-daily-text-message" target="_blank" rel="noopener">the setup steps in the README</a>. You can also run it on demand from the repository's Actions tab.</p>
+    </div>
+
+    <div class="card panel">
+      <h3>Phone calendar (no accounts needed)</h3>
+      <p>Every deploy also publishes <code>data/watering.ics</code>. Subscribe to it from Apple Calendar, Google Calendar or Outlook and your watering days — with the instructions in each entry — appear in the calendar you already carry, with your phone's own reminders. This needs no Twilio account, no Gmail password and no secrets.</p>
+      <div class="btn-row">
+        <button class="btn" id="btn-copy-ics">Copy the subscription link</button>
+        <a class="btn ghost" id="link-ics" href="data/watering.ics" download>Download the .ics file</a>
+      </div>
     </div>
   </section>
 </main>
@@ -324,15 +335,15 @@
 </footer>
 
 <!-- Plant detail dialog -->
-<dialog id="plant-dialog" class="dialog">
-  <div id="plant-dialog-body"></div>
+<dialog id="plant-dialog" class="dialog" aria-labelledby="plant-dialog-title">
+  <div id="plant-dialog-body" tabindex="-1"></div>
   <form method="dialog" class="dialog-close-row">
     <button class="btn ghost" value="close">Close</button>
   </form>
 </dialog>
 
 <!-- Lightbox for photos -->
-<dialog id="photo-dialog" class="dialog photo-dialog">
+<dialog id="photo-dialog" class="dialog photo-dialog" aria-label="Plant photo">
   <img id="photo-dialog-img" alt="Plant photo, enlarged">
   <form method="dialog" class="dialog-close-row">
     <button class="btn ghost" value="close">Close</button>

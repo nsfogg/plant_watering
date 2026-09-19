@@ -21,6 +21,10 @@ export const EMPTY_DOC = {
     siteUrl: '',
     notifyHour: 8,
     remindAheadDays: 0,
+    // Settings merge on their own timestamp. The document-level updatedAt only
+    // says who published last, so using it would let any publish from another
+    // device silently revert a setting you just changed here.
+    updatedAt: null,
   },
   plants: [],
   // id -> ISO timestamp. Without these, a delete made on one device would be
@@ -29,13 +33,35 @@ export const EMPTY_DOC = {
 };
 
 const TOMBSTONE_TTL_DAYS = 120;
+// How far two devices' clocks may plausibly disagree.
+const CLOCK_SKEW_MS = 5 * 60 * 1000;
 
 /* ── tiny localStorage helpers (private browsing can throw) ── */
 function lsGet(key) {
   try { return window.localStorage.getItem(key); } catch { return null; }
 }
+/** Returns 'ok', 'quota' (full) or 'blocked' (private mode, cookies off). */
 function lsSet(key, value) {
-  try { window.localStorage.setItem(key, value); return true; } catch { return false; }
+  try {
+    window.localStorage.setItem(key, value);
+    return 'ok';
+  } catch (err) {
+    // Browsers disagree on how a full store reports itself: Chrome and Firefox
+    // use different names and legacy codes, and some only say so in the message.
+    const name = (err && err.name) || '';
+    const message = (err && err.message) || '';
+    const quota = /quota|exceeded/i.test(name) || /quota|exceeded/i.test(message)
+      || err.code === 22 || err.code === 1014;
+    return quota ? 'quota' : 'blocked';
+  }
+}
+
+/** Can this browser store anything at all? Private modes sometimes cannot. */
+export function storageAvailable() {
+  const probe = 'plantcare.probe';
+  const result = lsSet(probe, '1');
+  lsRemove(probe);
+  return result !== 'blocked';
 }
 function lsRemove(key) {
   try { window.localStorage.removeItem(key); } catch { /* ignore */ }
@@ -48,7 +74,7 @@ export function normalizeDoc(raw) {
     const n = Math.round(Number(value));
     return Number.isFinite(n) ? Math.min(max, Math.max(min, n)) : fallback;
   };
-  const deleted = {};
+  const deleted = Object.create(null);
   if (doc.deleted && typeof doc.deleted === 'object') {
     Object.entries(doc.deleted).forEach(([id, when]) => {
       if (typeof id === 'string' && typeof when === 'string') deleted[id] = when;
@@ -62,16 +88,27 @@ export function normalizeDoc(raw) {
       siteUrl: settings.siteUrl || '',
       notifyHour: clampInt(settings.notifyHour, 0, 23, 8),
       remindAheadDays: clampInt(settings.remindAheadDays, 0, 14, 0),
+      updatedAt: settings.updatedAt || null,
     },
     plants: Array.isArray(doc.plants) ? doc.plants.map(normalizePlant).filter(Boolean) : [],
     deleted,
   };
 }
 
+/** True for a canonical YYYY-MM-DD that is also a date that exists. */
+function isRealDate(value) {
+  const text = typeof value === 'string' ? value.trim() : '';
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(text)) return false;
+  const [y, m, d] = text.split('-').map(Number);
+  const date = new Date(y, m - 1, d);
+  return date.getFullYear() === y && date.getMonth() === m - 1 && date.getDate() === d;
+}
+
 /** Drop tombstones old enough that every device has certainly seen them. */
 function pruneTombstones(deleted) {
   const cutoff = Date.now() - TOMBSTONE_TTL_DAYS * 86400000;
-  const out = {};
+  // Object.create(null): a plant whose id is "__proto__" must be deletable too.
+  const out = Object.create(null);
   Object.entries(deleted || {}).forEach(([id, when]) => {
     const t = Date.parse(when);
     if (!Number.isFinite(t) || t >= cutoff) out[id] = when;
@@ -94,6 +131,7 @@ const stamp = (value) => {
 export function mergeDocs(base, incoming) {
   const a = normalizeDoc(base);
   const b = normalizeDoc(incoming);
+
   const deleted = pruneTombstones({ ...a.deleted, ...b.deleted });
   Object.keys(deleted).forEach((id) => {
     const at = a.deleted[id];
@@ -102,25 +140,46 @@ export function mergeDocs(base, incoming) {
   });
 
   const byId = new Map();
+  const seen = new Map();
   [...a.plants, ...b.plants].forEach((plant) => {
-    const existing = byId.get(plant.id);
-    if (!existing || stamp(plant.updatedAt) > stamp(existing.updatedAt)) {
+    const previous = byId.get(plant.id);
+    // Ties go to the later argument: publish() merges (remote, local), so an
+    // edit made here is not thrown away by a same-millisecond collision.
+    if (!previous || stamp(plant.updatedAt) >= stamp(previous.updatedAt)) {
       byId.set(plant.id, plant);
     }
+    seen.set(plant.id, [...(seen.get(plant.id) || []), plant]);
   });
 
-  const plants = [...byId.values()].filter((plant) => {
-    const killedAt = deleted[plant.id];
-    // Edited after it was deleted somewhere else? The edit brings it back.
-    return !killedAt || stamp(plant.updatedAt) > stamp(killedAt);
-  });
-  plants.forEach((plant) => { delete deleted[plant.id]; });
+  const plants = [...byId.values()]
+    .filter((plant) => {
+      const killedAt = deleted[plant.id];
+      if (!killedAt) return true;
+      // Two devices' clocks rarely agree to the second. Only an edit clearly
+      // later than the delete revives a plant; a marginal ordering stays
+      // deleted, because resurrecting something on a drifting clock is worse
+      // than losing the last few minutes of an edit.
+      return stamp(plant.updatedAt) > stamp(killedAt) + CLOCK_SKEW_MS;
+    })
+    .map((plant) => {
+      // Watering dates only ever accumulate, so union them rather than letting
+      // the winning copy's list replace the other's.
+      const copies = seen.get(plant.id) || [plant];
+      if (copies.length < 2) return plant;
+      const history = [...new Set(copies.flatMap((c) => c.history || []))]
+        .sort((x, y) => y.localeCompare(x))
+        .slice(0, 40);
+      return { ...plant, history, lastWatered: history[0] || plant.lastWatered };
+    });
 
+  // A tombstone is kept even when the plant came back, so the delete is not
+  // forgotten by the device that has not seen the reviving edit yet.
+  const settings = stamp(b.settings.updatedAt) >= stamp(a.settings.updatedAt) ? b.settings : a.settings;
   const newest = stamp(a.updatedAt) >= stamp(b.updatedAt) ? a : b;
   return {
     version: 1,
     updatedAt: newest.updatedAt,
-    settings: newest.settings,
+    settings,
     plants,
     deleted,
   };
@@ -166,8 +225,12 @@ export function normalizePlant(raw) {
       healthy: Array.isArray(photos.healthy) ? photos.healthy.filter((s) => typeof s === 'string') : [],
       unhealthy: Array.isArray(photos.unhealthy) ? photos.unhealthy.filter((s) => typeof s === 'string') : [],
     },
-    lastWatered: /^\d{4}-\d{2}-\d{2}$/.test(str(raw.lastWatered)) ? str(raw.lastWatered) : '',
-    history: Array.isArray(raw.history) ? raw.history.filter((s) => /^\d{4}-\d{2}-\d{2}$/.test(String(s))) : [],
+    // A real date, not just the right shape: "2026-02-30" would otherwise make
+    // the plant permanently "due today" and put it in every daily text.
+    lastWatered: isRealDate(raw.lastWatered) ? str(raw.lastWatered) : '',
+    history: Array.isArray(raw.history)
+      ? [...new Set(raw.history.filter(isRealDate).map(String))].sort((a, b) => b.localeCompare(a)).slice(0, 40)
+      : [],
     archived: Boolean(raw.archived),
     createdAt: raw.createdAt || new Date().toISOString(),
     updatedAt: raw.updatedAt || new Date().toISOString(),
@@ -194,9 +257,18 @@ export const store = {
   async init() {
     let remote = null;
     try {
-      const res = await fetch(`${DATA_PATH}?t=${Date.now()}`, { cache: 'no-store' });
-      if (res.ok) remote = normalizeDoc(await res.json());
-      else this.loadError = `Could not read ${DATA_PATH} (HTTP ${res.status}).`;
+      const res = await fetch(DATA_PATH, { cache: 'no-store' });
+      if (res.ok) {
+        const raw = await res.json();
+        if (raw && typeof raw === 'object' && !Array.isArray(raw) && Array.isArray(raw.plants)) {
+          remote = normalizeDoc(raw);
+        } else {
+          // A 404 page or a hand-mangled file must not read as "no plants".
+          this.loadError = `${DATA_PATH} does not look like plant data, so it was ignored.`;
+        }
+      } else {
+        this.loadError = `Could not read ${DATA_PATH} (HTTP ${res.status}).`;
+      }
     } catch (err) {
       this.loadError = `Could not read ${DATA_PATH}: ${err.message}`;
     }
@@ -206,7 +278,18 @@ export const store = {
     const wasDirty = lsGet(LS_DIRTY) === '1';
     let local = null;
     if (localRaw) {
-      try { local = normalizeDoc(JSON.parse(localRaw)); } catch { local = null; }
+      try {
+        local = normalizeDoc(JSON.parse(localRaw));
+      } catch {
+        local = null;
+        if (wasDirty) {
+          // Unpublished work was in there. Keep the bytes so they can be
+          // recovered by hand, and say so instead of quietly moving on.
+          lsSet(`plantcare.doc.corrupt.${Date.now()}`, localRaw);
+          this.loadError = 'The unpublished copy stored in this browser was damaged and could not be read. '
+            + 'A backup of it was kept under plantcare.doc.corrupt.* in this browser\'s storage.';
+        }
+      }
     }
 
     if (local && wasDirty && remote) {
@@ -248,17 +331,27 @@ export const store = {
     const result = mutator(next);
     if (markDirty) next.updatedAt = new Date().toISOString();
 
-    if (!lsSet(LS_DOC, JSON.stringify(next))) {
-      // this.doc is untouched, so the UI keeps showing the last good state.
+    // The dirty flag goes first: if only the one-byte write failed, the
+    // document would look published when it is not.
+    if (lsSet(LS_DIRTY, markDirty || this.dirty ? '1' : '0') === 'blocked') {
       throw new Error(
-        'Your browser could not store this change — it is out of space, most '
-        + 'likely because of photos. Publish to GitHub (which moves photos out '
-        + 'of the data file), or remove a photo and try again.',
+        'This browser is blocking site storage (private browsing, or cookies '
+        + 'turned off), so changes cannot be saved here. Use a normal window, '
+        + 'or publish to GitHub from a browser that allows storage.',
       );
+    }
+    const wrote = lsSet(LS_DOC, JSON.stringify(next));
+    if (wrote !== 'ok') {
+      // this.doc is untouched, so the UI keeps showing the last good state.
+      lsSet(LS_DIRTY, this.dirty ? '1' : '0');
+      throw new Error(wrote === 'quota'
+        ? 'Your browser could not store this change — it is out of space, most '
+          + 'likely because of photos. Publish to GitHub (which moves photos out '
+          + 'of the data file), or remove a photo and try again.'
+        : 'This browser is blocking site storage, so changes cannot be saved here.');
     }
     this.doc = next;
     if (markDirty) this.dirty = true;
-    lsSet(LS_DIRTY, this.dirty ? '1' : '0');
     this.emit();
     return result;
   },
@@ -333,15 +426,24 @@ export const store = {
   },
 
   setSettings(patch) {
-    this.commit((doc) => { doc.settings = { ...doc.settings, ...patch }; });
+    this.commit((doc) => {
+      doc.settings = { ...doc.settings, ...patch, updatedAt: new Date().toISOString() };
+    });
   },
 
+  /**
+   * Replace everything with an imported file. Every plant is re-stamped: an
+   * import is a deliberate "use this version", and without the new timestamps
+   * the next publish would merge the restored plants straight back out again.
+   */
   replaceDoc(raw) {
     const incoming = normalizeDoc(raw);
+    const now = new Date().toISOString();
     this.commit((doc) => {
-      doc.settings = incoming.settings;
-      doc.plants = incoming.plants;
-      doc.deleted = incoming.deleted;
+      doc.settings = { ...incoming.settings, updatedAt: now };
+      doc.plants = incoming.plants.map((plant) => ({ ...plant, updatedAt: now }));
+      // Tombstones from the backup would delete plants it is meant to restore.
+      doc.deleted = Object.create(null);
     });
   },
 
@@ -559,9 +661,11 @@ export async function publish(cfg, doc, onProgress = () => {}) {
   onProgress('Checking GitHub for newer changes…');
   const remoteFile = await getFile(dataPath, cfg);
   let merged = normalizeDoc(structuredClone(doc));
+  let previousDoc = null;
   if (remoteFile && remoteFile.content) {
     try {
-      merged = mergeDocs(JSON.parse(fromBase64(remoteFile.content)), merged);
+      previousDoc = normalizeDoc(JSON.parse(fromBase64(remoteFile.content)));
+      merged = mergeDocs(previousDoc, merged);
     } catch (err) {
       throw new Error(`The copy of plants.json on GitHub could not be read (${err.message}). Fix or delete it, then publish again.`);
     }
@@ -628,7 +732,7 @@ export async function publish(cfg, doc, onProgress = () => {}) {
     }
   }
 
-  const removed = await sweepOrphanPhotos(cfg, merged, imageDir, onProgress);
+  const removed = await sweepOrphanPhotos(cfg, merged, previousDoc, imageDir, onProgress);
   return {
     doc: merged,
     photosUploaded: uploaded,
@@ -641,15 +745,39 @@ export async function publish(cfg, doc, onProgress = () => {}) {
  * Delete image files no plant points at any more. Best effort: a failure here
  * leaves junk behind but must never make a successful publish look broken.
  */
-async function sweepOrphanPhotos(cfg, doc, imageDir, onProgress) {
+const GENERATED_PHOTO = /^[A-Za-z0-9_-]{1,40}-(healthy|unhealthy)-[a-z0-9]+-\d+\.(jpg|png|webp|gif)$/;
+
+/**
+ * Delete image files nothing points at any more.
+ *
+ * Two rules keep this from destroying things it should not:
+ *   - only files this app generated (the name pattern) are ever considered, so
+ *     anything else in data/images/ is left alone;
+ *   - only files the PREVIOUS published data referenced are swept, so a photo
+ *     another device uploaded seconds ago -- which is on GitHub but not yet in
+ *     any plants.json -- is never mistaken for an orphan.
+ * Best effort throughout: junk left behind is much cheaper than a lost photo.
+ */
+async function sweepOrphanPhotos(cfg, doc, previousDoc, imageDir, onProgress) {
+  const nameOf = (src) => String(src).split('/').pop();
   const used = new Set();
   doc.plants.forEach((plant) => {
     ['healthy', 'unhealthy'].forEach((kind) => {
       (plant.photos[kind] || []).forEach((src) => {
-        if (!src.startsWith('data:')) used.add(src.split('/').pop());
+        if (!src.startsWith('data:')) used.add(nameOf(src));
       });
     });
   });
+
+  const wasUsed = new Set();
+  ((previousDoc && previousDoc.plants) || []).forEach((plant) => {
+    ['healthy', 'unhealthy'].forEach((kind) => {
+      (((plant.photos || {})[kind]) || []).forEach((src) => {
+        if (typeof src === 'string' && !src.startsWith('data:')) wasUsed.add(nameOf(src));
+      });
+    });
+  });
+  if (!wasUsed.size) return 0;
 
   try {
     const listing = await ghFetch(
@@ -657,14 +785,19 @@ async function sweepOrphanPhotos(cfg, doc, imageDir, onProgress) {
       cfg,
     );
     if (!Array.isArray(listing)) return 0;
-    const orphans = listing.filter(
-      (item) => item.type === 'file' && item.name !== '.gitkeep' && !used.has(item.name),
-    );
+    const orphans = listing.filter((item) => item.type === 'file'
+      && GENERATED_PHOTO.test(item.name)
+      && wasUsed.has(item.name)
+      && !used.has(item.name));
     let removed = 0;
     for (const orphan of orphans) {
       onProgress(`Tidying unused photo ${removed + 1} of ${orphans.length}…`);
-      await deleteFile(`${imageDir}/${orphan.name}`, orphan.sha, `Remove unused photo ${orphan.name}`, cfg);
-      removed += 1;
+      try {
+        await deleteFile(`${imageDir}/${orphan.name}`, orphan.sha, `Remove unused photo ${orphan.name}`, cfg);
+        removed += 1;
+      } catch {
+        // Someone else may have removed it already; keep going.
+      }
     }
     return removed;
   } catch {

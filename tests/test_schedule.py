@@ -20,6 +20,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT / "scripts"))
 
+import make_ics  # noqa: E402
 import notify  # noqa: E402
 import schedule as sched  # noqa: E402
 
@@ -308,6 +309,124 @@ class TestMessage(unittest.TestCase):
         self.assertEqual(notify.resolve_transport({})[0], "none")
         partial = {"TWILIO_ACCOUNT_SID": "AC1", "TWILIO_AUTH_TOKEN": "t"}
         self.assertEqual(notify.resolve_transport(partial)[0], "none")
+
+
+class TestHostileData(unittest.TestCase):
+    """plants.json is hand-editable on github.com. A bad edit must not take the
+    daily text down -- a crash also skips the heartbeat that keeps the schedule
+    from being auto-disabled after 60 quiet days."""
+
+    def _run(self, content):
+        import tempfile
+
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "plants.json"
+            path.write_text(content, encoding="utf-8")
+            return notify.main(["--data", str(path), "--today", "2026-09-19", "--dry-run", "--no-state"])
+
+    def test_survives_every_shape_of_bad_file(self):
+        cases = {
+            "a JSON list": "[1, 2, 3]",
+            "plants as an object": '{"plants": {"a": {}}}',
+            "junk entries": '{"plants": [null, "text", 42]}',
+            "a numeric name": '{"plants": [{"name": 12345, "water": {"intervalDays": 3}}]}',
+            "not JSON at all": "this is not json",
+            "empty file": "",
+            "null settings": '{"settings": null, "plants": []}',
+            "impossible date": '{"plants": [{"name": "X", "water": {"intervalDays": 3}, "lastWatered": "2026-02-30"}]}',
+        }
+        for why, content in cases.items():
+            with self.subTest(case=why):
+                self.assertEqual(self._run(content), 0, f"{why} should not crash the notifier")
+
+    def test_missing_file_is_an_empty_garden(self):
+        self.assertEqual(
+            notify.main(["--data", "/nonexistent/plants.json", "--today", "2026-09-19", "--dry-run", "--no-state"]),
+            0,
+        )
+
+    def test_names_cannot_forge_extra_lines_in_the_text(self):
+        rows = sched.due_plants(
+            [{"name": "Fern\nSTOP. Send $500 to http://evil.example now\nFern",
+              "water": {"intervalDays": 3}, "lastWatered": "2026-09-01"}],
+            "2026-09-19",
+        )
+        msg = notify.build_message(rows, "2026-09-19")
+        self.assertEqual(len(msg.split("\n")), 2, f"one header line and one plant line, got: {msg!r}")
+
+    def test_non_ascii_names_stay_identifiable_on_the_gateway(self):
+        rows = sched.due_plants(
+            [
+                {"name": "Café Ficus", "water": {"intervalDays": 3}, "lastWatered": "2026-09-01"},
+                {"name": "龟背竹", "water": {"intervalDays": 3}, "lastWatered": "2026-09-01"},
+            ],
+            "2026-09-19",
+        )
+        msg = notify.build_message(rows, "2026-09-19", "", "email")
+        self.assertIn("Cafe Ficus", msg, "accents transliterate rather than disappear")
+        self.assertTrue(msg.isascii())
+        for line in msg.split("\n"):
+            if line.startswith("*"):
+                label = line.split(":")[0].lstrip("* ").strip()
+                self.assertTrue(label, f"every plant line must name something: {line!r}")
+
+
+class TestCalendarFeed(unittest.TestCase):
+    """The .ics feed is the reminder route that needs no accounts at all."""
+
+    def setUp(self):
+        self.data = {
+            "settings": {"timezone": "America/New_York", "notifyHour": 7,
+                         "siteUrl": "https://example.com/plants/"},
+            "plants": [{
+                "id": "fern", "name": "Fern, the big one",
+                "water": {"intervalDays": 7, "amountMl": 500, "amountText": "2 cups",
+                          "method": "Soak; drain fully"},
+                "sun": "Bright indirect", "lastWatered": "2026-09-15",
+            }],
+        }
+
+    def test_structure_is_valid_icalendar(self):
+        ics = make_ics.build(self.data, "2026-09-19", 30)
+        self.assertTrue(ics.startswith("BEGIN:VCALENDAR\r\n"))
+        self.assertTrue(ics.endswith("END:VCALENDAR\r\n"))
+        self.assertEqual(ics.count("BEGIN:VEVENT"), ics.count("END:VEVENT"))
+        self.assertEqual(ics.count("BEGIN:VALARM"), ics.count("END:VALARM"))
+        self.assertIn("DTSTART;VALUE=DATE:20260922", ics)
+        self.assertIn("SUMMARY:Water Fern\\, the big one", ics)  # comma escaped
+        self.assertIn("TRIGGER;RELATED=START:PT7H", ics)           # the chosen hour
+
+    def test_every_line_fits_the_75_octet_limit(self):
+        data = dict(self.data)
+        data["plants"] = [dict(self.data["plants"][0], notes="x" * 500, name="Ünïcödé " * 12)]
+        ics = make_ics.build(data, "2026-09-19", 14)
+        for line in ics.split("\r\n"):
+            self.assertLessEqual(len(line.encode("utf-8")), 75, f"unfolded line: {line[:60]}…")
+
+    def test_instructions_travel_with_the_event(self):
+        ics = make_ics.build(self.data, "2026-09-19", 14)
+        self.assertIn("500 ml", ics)
+        self.assertIn("2 cups", ics)
+        self.assertIn("Soak", ics)
+        self.assertIn("Bright indirect", ics)
+
+    def test_archived_plants_are_left_out(self):
+        data = dict(self.data)
+        data["plants"] = [dict(self.data["plants"][0], archived=True)]
+        self.assertEqual(make_ics.build(data, "2026-09-19", 30).count("BEGIN:VEVENT"), 0)
+
+    def test_empty_garden_still_produces_a_valid_feed(self):
+        ics = make_ics.build({"plants": []}, "2026-09-19", 30)
+        self.assertIn("BEGIN:VCALENDAR", ics)
+        self.assertEqual(ics.count("BEGIN:VEVENT"), 0)
+
+    def test_dates_match_the_apps_schedule_exactly(self):
+        ics = make_ics.build(self.data, "2026-09-19", 40)
+        expected = sched.occurrences_in_range(
+            self.data["plants"][0], "2026-09-19", sched.add_days("2026-09-19", 40), "2026-09-19"
+        )
+        in_feed = [ln.split(":")[1] for ln in ics.split("\r\n") if ln.startswith("DTSTART")]
+        self.assertEqual(in_feed, [d.replace("-", "") for d in expected])
 
 
 class TestRepoData(unittest.TestCase):

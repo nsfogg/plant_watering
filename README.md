@@ -73,7 +73,21 @@ Fine-grained tokens **expire** — 30 days by default, and up to a year if you c
 
 ---
 
-## 3. Daily text message
+## 3. Reminders
+
+There are two, and you can use either or both.
+
+### Free, no accounts: subscribe your phone's calendar
+
+Every deploy publishes **`https://nsfogg.github.io/plant_watering/data/watering.ics`** — your watering schedule for the next six months, with each plant's amount, method, light and warning signs in the entry, and an alarm at the hour you chose.
+
+- **iPhone:** Settings → Calendar → Accounts → Add Account → Other → Add Subscribed Calendar → paste the link.
+- **Android / Google Calendar:** calendar.google.com → Other calendars → **+** → From URL → paste the link.
+- **Outlook:** Add calendar → Subscribe from web → paste the link.
+
+Your phone then reminds you with no Twilio account, no app password and no repository secrets. The site's **Settings → Phone calendar** has a button that copies the link for you. Calendar apps re-fetch every few hours, so changes show up on their own.
+
+### The daily text message
 
 `.github/workflows/notify.yml` reads `data/plants.json` and texts you the plants due that day with their watering instructions.
 
@@ -134,10 +148,14 @@ Log it: https://nsfogg.github.io/plant_watering/
 
 Nothing due? No text is sent.
 
+**Settings tells you whether it is actually working.** The notifier records every run in `data/notify-state.json`, and the site reads it back: *"Last text sent Sep 19 via Twilio — Monstera, Fern"*, or *"found plants due, but no text could be sent — the secrets are not set up yet"*. There is also a setup checklist that ticks itself off as you go.
+
 > **Two things to know about scheduled workflows**
 >
 > - GitHub disables them in repositories with no activity for 60 days. The daily run commits `data/notify-state.json` (once a day, whatever happens to the send — including failures), which counts as activity, so the schedule keeps itself alive.
-> - That commit is made by `github-actions[bot]`. If you turn on branch protection for `main`, either leave an exception for GitHub Actions or expect the "Record the run" step to warn. The text still sends either way.
+> - That commit is made by `github-actions[bot]`. If you protect `main`, either let GitHub Actions bypass it or expect the "Record the run" step to warn — the text still sends, and a separate Actions-cache marker makes sure a failed record cannot cause a repeat text later the same day.
+
+A send that fails (a Twilio blip, an SMTP timeout) is retried by the next hourly run, so a transient failure costs a few hours, not the day.
 
 ---
 
@@ -209,14 +227,16 @@ assets/js/schedule.js          when is each plant due          ─┐ same rules
 assets/js/images.js            resize photos in the browser     │ two languages,
 scripts/schedule.py            when is each plant due          ─┘ kept in sync by tests
 scripts/notify.py              builds and sends the text
+scripts/make_ics.py            publishes the calendar feed
 data/plants.json               your plants
+data/watering.ics              calendar feed, rebuilt on every deploy
 data/images/                   photos uploaded from the site
 .github/workflows/pages.yml    deploys the site
 .github/workflows/notify.yml   sends the daily text
 tests/                         schedule, merge and message tests
 ```
 
-On a phone, open the site and use **Add to Home Screen**: it installs like an app, and thanks to `sw.js` it opens and works at the sink even with no signal. Anything you change offline is saved locally and published the next time you have a connection.
+On a phone, open the site and use **Add to Home Screen**: it installs like an app, and thanks to `sw.js` it opens and works at the sink even with no signal. Anything you change offline is saved locally and published the next time you have a connection. The 🌗 button in the header switches between matching your device, light and dark.
 
 ## Development
 
@@ -225,6 +245,7 @@ python3 -m http.server 8000       # then open http://localhost:8000
 python3 tests/test_schedule.py    # schedule + message tests (node optional, for JS/Python parity)
 node tests/merge.test.mjs         # multi-device merge tests
 python3 scripts/notify.py --dry-run --no-state
+python3 scripts/make_ics.py --out - --days 30     # preview the calendar feed
 ```
 
 The site uses ES modules, so open it over `http://`, not as a `file://` path.

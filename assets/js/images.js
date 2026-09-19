@@ -18,6 +18,10 @@ export async function fileToDataUrl(file) {
   }
 
   const bitmap = await loadBitmap(file);
+  if (!bitmap.width || !bitmap.height || bitmap.width < 8 || bitmap.height < 8) {
+    // A 0x0 SVG or a 1px tracking pixel would otherwise become a blank photo.
+    throw new Error(`${file.name} does not contain a usable picture.`);
+  }
   const scale = Math.min(1, MAX_EDGE / Math.max(bitmap.width, bitmap.height));
   const width = Math.max(1, Math.round(bitmap.width * scale));
   const height = Math.max(1, Math.round(bitmap.height * scale));

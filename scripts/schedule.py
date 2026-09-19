@@ -161,7 +161,8 @@ def due_plants(plants, today: str) -> list:
         st = status_for(p, today)
         if st["needsWater"]:
             rows.append({"plant": p, **st})
-    rows.sort(key=lambda r: (r["dueDate"], (r["plant"].get("name") or "").lower()))
+    # str(): a hand-edited plants.json can carry a number where a name belongs.
+    rows.sort(key=lambda r: (r["dueDate"], str(r["plant"].get("name") or "").lower()))
     return rows
 
 

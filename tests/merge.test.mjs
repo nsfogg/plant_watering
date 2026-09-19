@@ -54,13 +54,70 @@ test('a delete is not resurrected by a stale device', () => {
   assert.equal(mergeDocs(stale, afterDelete).plants.length, 0);
 });
 
-test('an edit made after a delete brings the plant back', () => {
+test('an edit clearly after a delete brings the plant back', () => {
   const afterDelete = doc([], { deleted: { a: '2026-09-10T00:00:00Z' } });
   const edited = doc([plant('a', 'Aloe, revived', '2026-09-12T00:00:00Z')]);
   const merged = mergeDocs(afterDelete, edited);
   assert.equal(merged.plants.length, 1);
   assert.equal(merged.plants[0].name, 'Aloe, revived');
-  assert.ok(!merged.deleted.a, 'the tombstone is cleared once the plant is back');
+  assert.ok(merged.deleted.a, 'the tombstone is kept so devices that have not seen the edit still know about the delete');
+});
+
+test('a delete survives a clock 10 minutes out of step', () => {
+  // Device B's clock runs 10 minutes behind, so its delete is stamped BEFORE
+  // an edit that actually happened earlier. The delete must still win.
+  const deletedAt = '2026-09-10T09:55:00Z';        // B's clock
+  const editedAt = '2026-09-10T10:00:00Z';         // A's clock, really earlier
+  const deletedDoc = doc([], { deleted: { a: deletedAt } });
+  const editedDoc = doc([plant('a', 'Fern (renamed)', editedAt)]);
+  assert.equal(mergeDocs(deletedDoc, editedDoc).plants.length, 0);
+  assert.equal(mergeDocs(editedDoc, deletedDoc).plants.length, 0);
+});
+
+test('watering history from both devices is kept', () => {
+  const phone = doc([plant('a', 'Fern', '2026-09-17T12:00:00Z', {
+    lastWatered: '2026-09-17', history: ['2026-09-17', '2026-09-01'],
+  })]);
+  const laptop = doc([plant('a', 'Fern', '2026-09-18T12:00:00Z', {
+    lastWatered: '2026-09-18', history: ['2026-09-18', '2026-09-01'],
+  })]);
+  const merged = mergeDocs(phone, laptop);
+  assert.deepEqual(merged.plants[0].history, ['2026-09-18', '2026-09-17', '2026-09-01']);
+  assert.equal(merged.plants[0].lastWatered, '2026-09-18');
+});
+
+test('a setting changed here is not reverted by someone else publishing', () => {
+  // The other device published later, but it never touched the settings.
+  const local = {
+    ...doc([]), updatedAt: '2026-09-19T09:00:00Z',
+    settings: { timezone: 'Europe/Berlin', notifyHour: 6, updatedAt: '2026-09-19T09:00:00Z' },
+  };
+  const remotePublishedLater = {
+    ...doc([plant('a', 'Fern', '2026-09-19T09:30:00Z')]), updatedAt: '2026-09-19T09:30:00Z',
+    settings: { timezone: 'America/New_York', notifyHour: 8, updatedAt: '2026-09-01T00:00:00Z' },
+  };
+  const merged = mergeDocs(remotePublishedLater, local);
+  assert.equal(merged.settings.timezone, 'Europe/Berlin');
+  assert.equal(merged.settings.notifyHour, 6);
+  assert.equal(merged.plants.length, 1, 'and the other device\'s plant still arrives');
+});
+
+test('a plant id of __proto__ can still be deleted', () => {
+  const withPlant = doc([plant('__proto__', 'Odd', '2026-09-01T00:00:00Z')]);
+  // Built via JSON so "__proto__" is a real key, exactly as it would arrive
+  // from a hand-edited plants.json — an object literal would set the prototype.
+  const afterDelete = doc([], { deleted: JSON.parse('{"__proto__":"2026-09-05T00:00:00Z"}') });
+  const merged = mergeDocs(withPlant, afterDelete);
+  assert.equal(merged.plants.length, 0);
+  assert.equal({}.polluted, undefined);
+});
+
+test('an exact timestamp tie keeps the local edit', () => {
+  const when = '2026-09-19T10:00:00Z';
+  const remote = doc([plant('a', 'Remote copy', when)]);
+  const local = doc([plant('a', 'Local edit', when)]);
+  // publish() merges (remote, local), so the later argument must win a tie.
+  assert.equal(mergeDocs(remote, local).plants[0].name, 'Local edit');
 });
 
 test('settings follow the newer document', () => {

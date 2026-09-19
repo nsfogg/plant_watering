@@ -24,6 +24,7 @@ import json
 import os
 import smtplib
 import sys
+import unicodedata
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -68,6 +69,9 @@ def to_ascii(text: str) -> str:
     """Plain ASCII for carrier gateways, without dropping meaning."""
     for src, dst in ASCII_SWAPS.items():
         text = text.replace(src, dst)
+    # Decompose first, so Café -> Cafe and Señora -> Senora rather than
+    # "Caf" and "Seora" once the non-ASCII bytes are dropped.
+    text = unicodedata.normalize("NFKD", text)
     plain = text.encode("ascii", "ignore").decode("ascii")
     # Dropping a leading emoji must not leave the line starting with a space.
     return "\n".join(line.strip() for line in plain.split("\n"))
@@ -103,14 +107,44 @@ def local_hour(tz_name: str) -> int:
 
 
 def load_data(path: Path) -> dict:
+    """Read plants.json defensively.
+
+    This file is hand-editable on github.com, and a crash here would mean no
+    text AND no heartbeat commit -- which is how the schedule quietly dies.
+    So anything unusable is dropped with a warning and the run continues.
+    """
     if not path.exists():
+        print(f"::warning::{path} does not exist; treating it as an empty garden.", file=sys.stderr)
         return {"plants": [], "settings": {}}
-    with path.open(encoding="utf-8") as fh:
-        data = json.load(fh)
+
+    try:
+        with path.open(encoding="utf-8") as fh:
+            data = json.load(fh)
+    except (json.JSONDecodeError, OSError) as err:
+        print(f"::warning::{path} could not be read ({err}); treating it as empty.", file=sys.stderr)
+        return {"plants": [], "settings": {}}
+
     if not isinstance(data, dict):
-        raise ValueError(f"{path} must contain a JSON object")
-    data.setdefault("plants", [])
-    data.setdefault("settings", {})
+        print(f"::warning::{path} is not a JSON object; treating it as empty.", file=sys.stderr)
+        return {"plants": [], "settings": {}}
+
+    raw_plants = data.get("plants")
+    if not isinstance(raw_plants, list):
+        if raw_plants is not None:
+            print(f"::warning::'plants' in {path} is not a list; ignoring it.", file=sys.stderr)
+        raw_plants = []
+
+    plants = [p for p in raw_plants if isinstance(p, dict)]
+    if len(plants) != len(raw_plants):
+        print(
+            f"::warning::Ignored {len(raw_plants) - len(plants)} entry/entries in "
+            f"{path} that were not plant objects.",
+            file=sys.stderr,
+        )
+
+    settings = data.get("settings")
+    data["plants"] = plants
+    data["settings"] = settings if isinstance(settings, dict) else {}
     return data
 
 
@@ -153,7 +187,7 @@ def build_message(rows, today: str, site_url: str = "", transport: str = "twilio
 def _render(rows, today, site_url, gateway, detail, more=0):
     lines = [f"\U0001f331 Plant watering — {today}"]
 
-    for row in rows:
+    for index, row in enumerate(rows):
         plant = row["plant"]
         bits = []
         if row.get("headsUp"):
@@ -170,7 +204,17 @@ def _render(rows, today, site_url, gateway, detail, more=0):
         if detail >= 2 and plant.get("location"):
             bits.append(f"({one_line(plant['location'], 40)})")
 
-        name = plant.get("name") or "Unnamed plant"
+        # one_line: a name containing newlines would otherwise forge extra
+        # lines in the message, which reads like a scam text.
+        name = one_line(plant.get("name"), 60) or "Unnamed plant"
+        if gateway and not to_ascii(name).strip():
+            # A wholly non-Latin name disappears in the ASCII fold, so give the
+            # reader something they can still match to a plant.
+            name = f"Plant #{index + 1}"
+        if gateway:
+            # Fold each part on its own and drop the ones that vanish, or a
+            # non-Latin value would leave a dangling "-" in the line.
+            bits = [b for b in (to_ascii(str(b)).strip() for b in bits) if b]
         lines.append(f"• {name}: " + " — ".join(b for b in bits if b))
 
     if more:
@@ -283,6 +327,15 @@ def write_state(path: Path, state: dict) -> None:
         fh.write("\n")
 
 
+def set_output(name: str, value: str) -> None:
+    """Hand a value back to the workflow (GITHUB_OUTPUT), when running in CI."""
+    path = os.environ.get("GITHUB_OUTPUT")
+    if not path:
+        return
+    with open(path, "a", encoding="utf-8") as fh:
+        fh.write(f"{name}={value}\n")
+
+
 def heartbeat(today: str, extra=None, enabled: bool = True) -> None:
     """Record that the workflow ran.
 
@@ -309,7 +362,12 @@ def main(argv=None) -> int:
     parser.add_argument(
         "--scheduled",
         action="store_true",
-        help="cron mode: do nothing unless the local hour matches settings.notifyHour",
+        help="cron mode: do nothing unless the local hour has reached settings.notifyHour",
+    )
+    parser.add_argument(
+        "--print-date",
+        action="store_true",
+        help="print today's date in the garden's timezone and exit",
     )
     args = parser.parse_args(argv)
 
@@ -319,6 +377,10 @@ def main(argv=None) -> int:
     today = args.today or local_today(tz_name)
     if sched.parse_iso(today) is None:
         raise SystemExit(f"--today must be YYYY-MM-DD, got {today!r}")
+
+    if args.print_date:
+        print(today)
+        return 0
 
     # Dry runs must not touch the working tree, and must not consume the day's
     # heartbeat -- otherwise the real scheduled run later finds nothing to commit.
@@ -426,14 +488,21 @@ def main(argv=None) -> int:
             send_twilio(message, cfg)
         else:
             send_email_sms(message, cfg)
-    finally:
-        # The heartbeat records the attempt even when delivery blows up.
-        heartbeat(today, {"lastRunDue": needing, "transport": kind, **claimed}, keep_state)
+    except BaseException:
+        # Record the attempt (the heartbeat keeps the schedule alive) but do
+        # NOT claim the day: the next hourly run must retry, or one transient
+        # Twilio 500 would silently cost that day's reminder.
+        heartbeat(today, {"lastRunDue": needing, "transport": kind, "lastError": today}, keep_state)
+        raise
 
+    # The workflow turns this into a cache marker, so the day cannot be sent
+    # twice even if the run record fails to push (protected branch, say).
+    set_output("sent", "true")
     heartbeat(
         today,
         {
             "lastSent": today,
+            "lastError": None,
             "lastRunDue": needing,
             "lastPlants": [r["plant"].get("name") for r in rows],
             "transport": kind,
