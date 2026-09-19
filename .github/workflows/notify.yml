@@ -108,8 +108,10 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add data/notify-state.json
           git commit -m "Record watering notification run [skip ci]"
+          # --autostash below: anything else the run happened to touch must not
+          # stop the rebase, or the record (and the 60-day keep-alive) is lost.
           for attempt in 1 2 3; do
-            git pull --rebase origin "$BRANCH" && git push origin "HEAD:$BRANCH" && exit 0
+            git pull --rebase --autostash origin "$BRANCH" && git push origin "HEAD:$BRANCH" && exit 0
             echo "Push attempt $attempt failed; retrying…"
             sleep $((attempt * 5))
           done

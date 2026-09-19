@@ -1,0 +1,3 @@
+{
+  "note": "Written by scripts/notify.py on every run of the daily watering check. The site reads it to show whether reminders are working. No need to edit this by hand."
+}

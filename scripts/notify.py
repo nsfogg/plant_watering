@@ -102,7 +102,14 @@ def local_today(tz_name: str) -> str:
 
 
 def local_hour(tz_name: str) -> int:
-    """Current hour (0-23) in the garden's timezone."""
+    """Current hour (0-23) in the garden's timezone.
+
+    PLANTCARE_FAKE_HOUR exists so the scheduling behaviour can be exercised
+    without waiting for a particular time of day; it is ignored in normal use.
+    """
+    override = os.environ.get("PLANTCARE_FAKE_HOUR", "").strip()
+    if override.isdigit():
+        return max(0, min(23, int(override)))
     return datetime.now(zone(tz_name)).hour
 
 
