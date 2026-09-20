@@ -58,12 +58,14 @@ jobs:
         id: send
         if: steps.marker.outputs.cache-hit != 'true' 
         env:
-          # Twilio (route 1) — set all four to use it
+          # Twilio (route 1, paid) — set all four to use it
           TWILIO_ACCOUNT_SID: ${{ secrets.TWILIO_ACCOUNT_SID }}
           TWILIO_AUTH_TOKEN: ${{ secrets.TWILIO_AUTH_TOKEN }}
           TWILIO_FROM: ${{ secrets.TWILIO_FROM }}
           SMS_TO: ${{ secrets.SMS_TO }}
-          # Email-to-SMS gateway (route 2, free) — set all four to use it
+          # Discord (route 2, free, simplest setup) — set this one to use it
+          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+          # Email-to-SMS gateway (route 3, free, but carriers are retiring these)
           SMTP_HOST: ${{ secrets.SMTP_HOST }}
           SMTP_PORT: ${{ secrets.SMTP_PORT }}
           SMTP_USER: ${{ secrets.SMTP_USER }}

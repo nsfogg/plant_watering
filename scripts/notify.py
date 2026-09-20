@@ -4,11 +4,18 @@
 Runs inside GitHub Actions (.github/workflows/notify.yml) -- no server, no
 cron box, no dependencies beyond the standard library.
 
-Two delivery routes, picked automatically from whichever secrets exist:
+Three delivery routes, picked automatically from whichever secrets exist, in
+this priority order:
 
   1. Twilio       TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, TWILIO_FROM, SMS_TO
-  2. Email->SMS   SMTP_HOST, SMTP_USER, SMTP_PASS, SMS_TO_EMAIL   (free: your
-                  carrier's gateway, e.g. 5551234567@vtext.com)
+                   (paid, pennies per text)
+  2. Discord      DISCORD_WEBHOOK_URL
+                   (free; the simplest to set up -- one URL, no bot to create)
+  3. Email->SMS   SMTP_HOST, SMTP_USER, SMTP_PASS, SMS_TO_EMAIL   (free, but
+                   depends on your carrier's gateway still being alive --
+                   e.g. 5551234567@vtext.com -- and most are shutting these
+                   down; point SMS_TO_EMAIL at your own inbox instead of a
+                   gateway address for a route that always works)
 
 Usage:
   python scripts/notify.py                 # send if anything is due
@@ -43,7 +50,6 @@ STATE_FILE = ROOT / "data" / "notify-state.json"
 # Carrier gateways, for the free email->SMS route. Handy reference for setup.
 CARRIER_GATEWAYS = {
     "verizon": "vtext.com",
-    "att": "txt.att.net",
     "tmobile": "tmomail.net",
     "sprint": "messaging.sprintpcs.com",
     "googlefi": "msg.fi.google.com",
@@ -57,6 +63,14 @@ MAX_SMS_CHARS = 1400
 # Carrier gateways choke on long or non-ASCII bodies (Verizon truncates near 160
 # and often mangles emoji), so the email route gets a plainer, shorter message.
 MAX_GATEWAY_CHARS = 300
+# Discord caps a plain message at 2000 characters.
+MAX_DISCORD_CHARS = 1900
+
+MAX_CHARS = {
+    "twilio": MAX_SMS_CHARS,
+    "discord": MAX_DISCORD_CHARS,
+    "email": MAX_GATEWAY_CHARS,
+}
 
 ASCII_SWAPS = {
     "\u2014": "-", "\u2013": "-", "\u2022": "*", "\u2026": "...",
@@ -174,7 +188,7 @@ def build_message(rows, today: str, site_url: str = "", transport: str = "twilio
         return ""
 
     gateway = transport == "email"
-    limit = MAX_GATEWAY_CHARS if gateway else MAX_SMS_CHARS
+    limit = MAX_CHARS.get(transport, MAX_SMS_CHARS)
 
     # Richest first: 2 = everything, 1 = drop location, 0 = name + amount only.
     for detail in (2, 1, 0):
@@ -269,6 +283,22 @@ def send_twilio(message: str, cfg: dict) -> None:
         raise SystemExit(f"Twilio rejected the message ({err.code}): {detail}") from err
 
 
+def send_discord(message: str, cfg: dict) -> None:
+    payload = json.dumps({"content": message}).encode()
+    req = urllib.request.Request(
+        cfg["webhook_url"],
+        data=payload,
+        headers={"Content-Type": "application/json"},
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=30) as resp:
+            resp.read()  # Discord returns 204 No Content on success.
+        print("Discord delivered the message.")
+    except urllib.error.HTTPError as err:
+        detail = err.read().decode(errors="replace")[:500]
+        raise SystemExit(f"Discord rejected the message ({err.code}): {detail}") from err
+
+
 def send_email_sms(message: str, cfg: dict) -> None:
     msg = EmailMessage()
     msg["From"] = cfg["user"]
@@ -299,6 +329,10 @@ def resolve_transport(env) -> tuple:
     sms_to = env.get("SMS_TO", "").strip()
     if sid and token and twilio_from and sms_to:
         return "twilio", {"sid": sid, "token": token, "from": twilio_from, "to": sms_to}
+
+    webhook = env.get("DISCORD_WEBHOOK_URL", "").strip()
+    if webhook:
+        return "discord", {"webhook_url": webhook}
 
     host = env.get("SMTP_HOST", "").strip()
     user = env.get("SMTP_USER", "").strip()
@@ -476,11 +510,12 @@ def main(argv=None) -> int:
         # mail the owner a failed workflow every single morning. The step summary
         # and this notice say what to do instead.
         print(
-            "\n*** No SMS transport configured, so no text was sent. ***\n"
-            "Add either the Twilio secrets (TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, "
-            "TWILIO_FROM, SMS_TO) or the free email-to-SMS secrets (SMTP_HOST, "
-            "SMTP_USER, SMTP_PASS, SMS_TO_EMAIL) under Settings > Secrets and "
-            "variables > Actions. See README.md, section 3.",
+            "\n*** No notification transport configured, so nothing was sent. ***\n"
+            "Add one of: the Twilio secrets (TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, "
+            "TWILIO_FROM, SMS_TO), a Discord webhook (DISCORD_WEBHOOK_URL), or the "
+            "free email-to-SMS secrets (SMTP_HOST, SMTP_USER, SMTP_PASS, "
+            "SMS_TO_EMAIL) under Settings > Secrets and variables > Actions. "
+            "See README.md, section 3.",
             file=sys.stderr,
         )
         if summary_path:
@@ -493,6 +528,8 @@ def main(argv=None) -> int:
     try:
         if kind == "twilio":
             send_twilio(message, cfg)
+        elif kind == "discord":
+            send_discord(message, cfg)
         else:
             send_email_sms(message, cfg)
     except BaseException:

@@ -95,27 +95,25 @@ It runs **hourly**, and `scripts/notify.py` sends on the first run at or after t
 
 **Settings → Warn me this many days early** adds a heads-up line for plants coming due soon, if you want the warning before the day itself.
 
-Pick **one** of the two routes and add its secrets under **Settings → Secrets and variables → Actions → New repository secret**.
+Pick **one** of the three routes below and add its secrets under **Settings → Secrets and variables → Actions → New repository secret**. If more than one is configured, priority is Twilio, then Discord, then the email gateway — but you only need one.
 
-### Route A — free, via your carrier's email-to-SMS gateway
+### Route A — Discord (free, simplest to set up)
 
-No account, no cost. Send an email to `<your-number>@<carrier-gateway>` and it arrives as a text.
+No account beyond Discord itself, no bot to create — just one URL.
+
+1. Open Discord (or create a free account). Make a server for yourself if you don't already have one: **+** at the bottom of the server list → **Create My Own** → "For me and my friends" is fine.
+2. Pick the channel you want reminders in → the gear icon (Edit Channel) → **Integrations** → **Webhooks** → **New Webhook**.
+3. Name it (e.g. "Plant Care"), then **Copy Webhook URL**.
 
 | Secret | Value |
 |---|---|
-| `SMTP_HOST` | `smtp.gmail.com` |
-| `SMTP_PORT` | `587` |
-| `SMTP_USER` | your Gmail address |
-| `SMTP_PASS` | a Gmail **app password** ([myaccount.google.com/apppasswords](https://myaccount.google.com/apppasswords), requires 2-factor auth) |
-| `SMS_TO_EMAIL` | `<your 10-digit number>@<gateway>` |
+| `DISCORD_WEBHOOK_URL` | the URL you copied |
 
-Gateways: Verizon `vtext.com` · AT&T `txt.att.net` · T-Mobile `tmomail.net` · Google Fi `msg.fi.google.com` · US Cellular `email.uscc.net` · Cricket `sms.cricketwireless.net` · Boost `sms.myboostmobile.com` · Metro `mymetropcs.com`
+Reminders arrive as a message in that channel, with a push notification from the Discord app exactly like a DM.
 
-So a Verizon number `5551234567` becomes `5551234567@vtext.com`.
+### Route B — Twilio (paid, pennies per message)
 
-*Carriers throttle and occasionally drop gateway mail, and a few are retiring these gateways. If texts stop arriving, switch to Route B.*
-
-### Route B — Twilio (reliable, pennies per message)
+The most universal option — a real SMS, no app required.
 
 | Secret | Value |
 |---|---|
@@ -124,7 +122,19 @@ So a Verizon number `5551234567` becomes `5551234567@vtext.com`.
 | `TWILIO_FROM` | your Twilio number, `+15551234567` |
 | `SMS_TO` | your phone, `+15551234567` |
 
-If both routes are configured, Twilio wins.
+### Route C — your carrier's email-to-SMS gateway (free, increasingly unreliable)
+
+No account beyond Gmail, but carriers are actively retiring these. Try Route A instead unless you know your carrier's gateway is still alive. (Or skip the gateway trick entirely and point `SMS_TO_EMAIL` at your own inbox — same secrets, and it always works as long as Gmail does.)
+
+| Secret | Value |
+|---|---|
+| `SMTP_HOST` | `smtp.gmail.com` |
+| `SMTP_PORT` | `587` |
+| `SMTP_USER` | your Gmail address |
+| `SMTP_PASS` | a Gmail **app password** ([myaccount.google.com/apppasswords](https://myaccount.google.com/apppasswords), requires 2-factor auth) |
+| `SMS_TO_EMAIL` | `<your 10-digit number>@<gateway>`, or your own email address |
+
+Gateways: Verizon `vtext.com` · T-Mobile `tmomail.net` · Google Fi `msg.fi.google.com` · US Cellular `email.uscc.net` · Cricket `sms.cricketwireless.net` · Boost `sms.myboostmobile.com` · Metro `mymetropcs.com`
 
 ### Trying it out
 

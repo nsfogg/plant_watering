@@ -303,12 +303,45 @@ class TestMessage(unittest.TestCase):
         twilio = {"TWILIO_ACCOUNT_SID": "AC1", "TWILIO_AUTH_TOKEN": "t",
                   "TWILIO_FROM": "+1", "SMS_TO": "+2"}
         self.assertEqual(notify.resolve_transport(twilio)[0], "twilio")
+        discord = {"DISCORD_WEBHOOK_URL": "https://discord.com/api/webhooks/123/abc"}
+        self.assertEqual(notify.resolve_transport(discord)[0], "discord")
         email = {"SMTP_HOST": "smtp.gmail.com", "SMTP_USER": "a@b.c",
                  "SMTP_PASS": "x", "SMS_TO_EMAIL": "5551234567@vtext.com"}
         self.assertEqual(notify.resolve_transport(email)[0], "email")
         self.assertEqual(notify.resolve_transport({})[0], "none")
         partial = {"TWILIO_ACCOUNT_SID": "AC1", "TWILIO_AUTH_TOKEN": "t"}
         self.assertEqual(notify.resolve_transport(partial)[0], "none")
+
+    def test_transport_priority_twilio_then_discord_then_email(self):
+        # Twilio wins when several are configured at once; Discord beats the
+        # carrier email gateway, which is progressively being retired by
+        # carriers (AT&T's is already gone).
+        all_three = {
+            "TWILIO_ACCOUNT_SID": "AC1", "TWILIO_AUTH_TOKEN": "t",
+            "TWILIO_FROM": "+1", "SMS_TO": "+2",
+            "DISCORD_WEBHOOK_URL": "https://discord.com/api/webhooks/1/x",
+            "SMTP_HOST": "h", "SMTP_USER": "u", "SMTP_PASS": "p", "SMS_TO_EMAIL": "x@y.com",
+        }
+        self.assertEqual(notify.resolve_transport(all_three)[0], "twilio")
+        discord_and_email = {k: v for k, v in all_three.items() if not k.startswith("TWILIO") and k != "SMS_TO"}
+        self.assertEqual(notify.resolve_transport(discord_and_email)[0], "discord")
+
+    def test_discord_resolves_and_renders_full_detail(self):
+        discord = {"DISCORD_WEBHOOK_URL": "https://discord.com/api/webhooks/123/abc"}
+        self.assertEqual(notify.resolve_transport(discord)[0], "discord")
+        self.assertEqual(notify.resolve_transport({})[0], "none")
+
+        rows = sched.due_plants(
+            [{"name": "Café Ficus 🌿", "water": {"intervalDays": 7, "amountMl": 500,
+              "amountText": "about 2 cups", "method": "Water until it drains"},
+              "location": "Living room", "lastWatered": "2026-09-01"}],
+            "2026-09-19",
+        )
+        msg = notify.build_message(rows, "2026-09-19", "https://example.com/#today", "discord")
+        self.assertIn("Café Ficus 🌿", msg)
+        self.assertIn("Living room", msg)
+        self.assertIn("Water until it drains", msg)
+        self.assertLessEqual(len(msg), notify.MAX_DISCORD_CHARS)
 
 
 class TestHostileData(unittest.TestCase):
