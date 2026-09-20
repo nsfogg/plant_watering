@@ -95,7 +95,7 @@ It runs **hourly**, and `scripts/notify.py` sends on the first run at or after t
 
 **Settings → Warn me this many days early** adds a heads-up line for plants coming due soon, if you want the warning before the day itself.
 
-Pick **one** of the four routes below and add its secrets under **Settings → Secrets and variables → Actions → New repository secret**. If more than one is configured, priority is Twilio, then Telegram, then Discord, then the email gateway — but you only need one.
+Pick **one** of the three routes below and add its secrets under **Settings → Secrets and variables → Actions → New repository secret**. If more than one is configured, priority is Twilio, then Discord, then the email gateway — but you only need one.
 
 ### Route A — Discord (free, simplest to set up)
 
@@ -111,20 +111,7 @@ No account beyond Discord itself, no bot to create — just one URL.
 
 Reminders arrive as a message in that channel, with a push notification from the Discord app exactly like a DM.
 
-### Route B — Telegram (free)
-
-A little more setup than Discord, but works the same way — a push notification with the full message, no length limit worth worrying about.
-
-1. In Telegram, message **[@BotFather](https://t.me/BotFather)** → send `/newbot` → follow the prompts (any name, any username ending in `bot`). It replies with a token that looks like `123456789:AAExampleToken...` — that's `TELEGRAM_BOT_TOKEN`.
-2. Send your new bot any message (e.g. "hi") so it knows where to reply.
-3. Visit `https://api.telegram.org/bot<your-token>/getUpdates` in a browser (with your real token in place of `<your-token>`). Find `"chat":{"id":` in the response — that number is `TELEGRAM_CHAT_ID`.
-
-| Secret | Value |
-|---|---|
-| `TELEGRAM_BOT_TOKEN` | from @BotFather |
-| `TELEGRAM_CHAT_ID` | from the `getUpdates` response |
-
-### Route C — Twilio (paid, pennies per message)
+### Route B — Twilio (paid, pennies per message)
 
 The most universal option — a real SMS, no app required.
 
@@ -135,9 +122,9 @@ The most universal option — a real SMS, no app required.
 | `TWILIO_FROM` | your Twilio number, `+15551234567` |
 | `SMS_TO` | your phone, `+15551234567` |
 
-### Route D — your carrier's email-to-SMS gateway (free, increasingly unreliable)
+### Route C — your carrier's email-to-SMS gateway (free, increasingly unreliable)
 
-No account beyond Gmail, but carriers are actively retiring these — **AT&T's `txt.att.net` no longer works for most numbers.** Try Route A or B instead unless you know your carrier's gateway is still alive. (Or skip the gateway trick entirely and point `SMS_TO_EMAIL` at your own inbox — same secrets, and it always works as long as Gmail does.)
+No account beyond Gmail, but carriers are actively retiring these. Try Route A instead unless you know your carrier's gateway is still alive. (Or skip the gateway trick entirely and point `SMS_TO_EMAIL` at your own inbox — same secrets, and it always works as long as Gmail does.)
 
 | Secret | Value |
 |---|---|

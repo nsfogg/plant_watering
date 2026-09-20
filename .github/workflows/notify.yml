@@ -63,12 +63,9 @@ jobs:
           TWILIO_AUTH_TOKEN: ${{ secrets.TWILIO_AUTH_TOKEN }}
           TWILIO_FROM: ${{ secrets.TWILIO_FROM }}
           SMS_TO: ${{ secrets.SMS_TO }}
-          # Telegram (route 2, free) — set both to use it
-          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
-          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
-          # Discord (route 3, free, simplest setup) — set this one to use it
+          # Discord (route 2, free, simplest setup) — set this one to use it
           DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
-          # Email-to-SMS gateway (route 4, free, but carriers are retiring these)
+          # Email-to-SMS gateway (route 3, free, but carriers are retiring these)
           SMTP_HOST: ${{ secrets.SMTP_HOST }}
           SMTP_PORT: ${{ secrets.SMTP_PORT }}
           SMTP_USER: ${{ secrets.SMTP_USER }}
