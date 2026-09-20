@@ -288,7 +288,14 @@ def send_discord(message: str, cfg: dict) -> None:
     req = urllib.request.Request(
         cfg["webhook_url"],
         data=payload,
-        headers={"Content-Type": "application/json"},
+        headers={
+            "Content-Type": "application/json",
+            # Discord's webhook endpoint sits behind Cloudflare, which blocks
+            # urllib's default "Python-urllib/x.y" agent as a bot -- a plain
+            # HTTP 403 "error code: 1010" that never reaches Discord's own
+            # API. A normal, identifiable User-Agent avoids that entirely.
+            "User-Agent": "PlantCareNotifier (https://github.com/nsfogg/plant_watering, 1.0)",
+        },
     )
     try:
         with urllib.request.urlopen(req, timeout=30) as resp:
@@ -296,6 +303,14 @@ def send_discord(message: str, cfg: dict) -> None:
         print("Discord delivered the message.")
     except urllib.error.HTTPError as err:
         detail = err.read().decode(errors="replace")[:500]
+        if err.code == 403 and "1010" in detail:
+            raise SystemExit(
+                "Discord rejected the message (403, Cloudflare error 1010) -- this is Cloudflare "
+                "blocking the request before it reaches Discord, usually over a missing or "
+                "suspicious User-Agent. Check the webhook URL is correct and try again; if it "
+                "keeps happening, the webhook may have been deleted (Discord returns a different, "
+                "JSON 404 for that case) or Cloudflare is blocking GitHub's runner IP range."
+            ) from err
         raise SystemExit(f"Discord rejected the message ({err.code}): {detail}") from err
 
 
