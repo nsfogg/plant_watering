@@ -4,17 +4,20 @@
 Runs inside GitHub Actions (.github/workflows/notify.yml) -- no server, no
 cron box, no dependencies beyond the standard library.
 
-Three delivery routes, picked automatically from whichever secrets exist, in
+Four delivery routes, picked automatically from whichever secrets exist, in
 this priority order:
 
   1. Twilio       TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, TWILIO_FROM, SMS_TO
                    (paid, pennies per text)
   2. Telegram     TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID
-                   (free, most reliable free option -- carrier email-to-SMS
-                   gateways are being shut down one carrier at a time)
-  3. Email->SMS   SMTP_HOST, SMTP_USER, SMTP_PASS, SMS_TO_EMAIL   (free, but
+                   (free; needs the Telegram app)
+  3. Discord      DISCORD_WEBHOOK_URL
+                   (free; the simplest to set up -- one URL, no bot to create)
+  4. Email->SMS   SMTP_HOST, SMTP_USER, SMTP_PASS, SMS_TO_EMAIL   (free, but
                    depends on your carrier's gateway still being alive --
-                   e.g. 5551234567@vtext.com)
+                   e.g. 5551234567@vtext.com -- and most are shutting these
+                   down; point SMS_TO_EMAIL at your own inbox instead of a
+                   gateway address for a route that always works)
 
 Usage:
   python scripts/notify.py                 # send if anything is due
@@ -66,8 +69,15 @@ MAX_GATEWAY_CHARS = 300
 # Telegram's real limit is 4096 UTF-16 code units; this leaves headroom for
 # multi-unit emoji so we never brush up against the API's own truncation.
 MAX_TELEGRAM_CHARS = 3500
+# Discord caps a plain message at 2000 characters.
+MAX_DISCORD_CHARS = 1900
 
-MAX_CHARS = {"twilio": MAX_SMS_CHARS, "telegram": MAX_TELEGRAM_CHARS, "email": MAX_GATEWAY_CHARS}
+MAX_CHARS = {
+    "twilio": MAX_SMS_CHARS,
+    "telegram": MAX_TELEGRAM_CHARS,
+    "discord": MAX_DISCORD_CHARS,
+    "email": MAX_GATEWAY_CHARS,
+}
 
 ASCII_SWAPS = {
     "\u2014": "-", "\u2013": "-", "\u2022": "*", "\u2026": "...",
@@ -304,6 +314,22 @@ def send_telegram(message: str, cfg: dict) -> None:
     print(f"Telegram delivered message {body['result']['message_id']} to chat {cfg['chat_id']}")
 
 
+def send_discord(message: str, cfg: dict) -> None:
+    payload = json.dumps({"content": message}).encode()
+    req = urllib.request.Request(
+        cfg["webhook_url"],
+        data=payload,
+        headers={"Content-Type": "application/json"},
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=30) as resp:
+            resp.read()  # Discord returns 204 No Content on success.
+        print("Discord delivered the message.")
+    except urllib.error.HTTPError as err:
+        detail = err.read().decode(errors="replace")[:500]
+        raise SystemExit(f"Discord rejected the message ({err.code}): {detail}") from err
+
+
 def send_email_sms(message: str, cfg: dict) -> None:
     msg = EmailMessage()
     msg["From"] = cfg["user"]
@@ -339,6 +365,10 @@ def resolve_transport(env) -> tuple:
     chat_id = env.get("TELEGRAM_CHAT_ID", "").strip()
     if bot_token and chat_id:
         return "telegram", {"token": bot_token, "chat_id": chat_id}
+
+    webhook = env.get("DISCORD_WEBHOOK_URL", "").strip()
+    if webhook:
+        return "discord", {"webhook_url": webhook}
 
     host = env.get("SMTP_HOST", "").strip()
     user = env.get("SMTP_USER", "").strip()
@@ -519,9 +549,10 @@ def main(argv=None) -> int:
             "\n*** No notification transport configured, so nothing was sent. ***\n"
             "Add one of: the Twilio secrets (TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, "
             "TWILIO_FROM, SMS_TO), the Telegram secrets (TELEGRAM_BOT_TOKEN, "
-            "TELEGRAM_CHAT_ID), or the free email-to-SMS secrets (SMTP_HOST, "
-            "SMTP_USER, SMTP_PASS, SMS_TO_EMAIL) under Settings > Secrets and "
-            "variables > Actions. See README.md, section 3.",
+            "TELEGRAM_CHAT_ID), a Discord webhook (DISCORD_WEBHOOK_URL), or the "
+            "free email-to-SMS secrets (SMTP_HOST, SMTP_USER, SMTP_PASS, "
+            "SMS_TO_EMAIL) under Settings > Secrets and variables > Actions. "
+            "See README.md, section 3.",
             file=sys.stderr,
         )
         if summary_path:
@@ -536,6 +567,8 @@ def main(argv=None) -> int:
             send_twilio(message, cfg)
         elif kind == "telegram":
             send_telegram(message, cfg)
+        elif kind == "discord":
+            send_discord(message, cfg)
         else:
             send_email_sms(message, cfg)
     except BaseException:

@@ -314,18 +314,38 @@ class TestMessage(unittest.TestCase):
         partial_telegram = {"TELEGRAM_BOT_TOKEN": "123:ABC"}
         self.assertEqual(notify.resolve_transport(partial_telegram)[0], "none")
 
-    def test_transport_priority_twilio_then_telegram_then_email(self):
-        # Twilio wins when several are configured at once; Telegram beats the
-        # carrier email gateway, since gateways are progressively being retired.
-        all_three = {
+    def test_transport_priority_twilio_then_telegram_then_discord_then_email(self):
+        # Twilio wins when several are configured at once; Telegram beats
+        # Discord beats the carrier email gateway, which is progressively
+        # being retired by carriers.
+        all_four = {
             "TWILIO_ACCOUNT_SID": "AC1", "TWILIO_AUTH_TOKEN": "t",
             "TWILIO_FROM": "+1", "SMS_TO": "+2",
             "TELEGRAM_BOT_TOKEN": "123:ABC", "TELEGRAM_CHAT_ID": "999",
+            "DISCORD_WEBHOOK_URL": "https://discord.com/api/webhooks/1/x",
             "SMTP_HOST": "h", "SMTP_USER": "u", "SMTP_PASS": "p", "SMS_TO_EMAIL": "x@y.com",
         }
-        self.assertEqual(notify.resolve_transport(all_three)[0], "twilio")
-        telegram_and_email = {k: v for k, v in all_three.items() if not k.startswith("TWILIO") and k != "SMS_TO"}
-        self.assertEqual(notify.resolve_transport(telegram_and_email)[0], "telegram")
+        self.assertEqual(notify.resolve_transport(all_four)[0], "twilio")
+        without_twilio = {k: v for k, v in all_four.items() if not k.startswith("TWILIO") and k != "SMS_TO"}
+        self.assertEqual(notify.resolve_transport(without_twilio)[0], "telegram")
+        without_twilio_or_telegram = {k: v for k, v in without_twilio.items() if not k.startswith("TELEGRAM")}
+        self.assertEqual(notify.resolve_transport(without_twilio_or_telegram)[0], "discord")
+
+    def test_discord_resolves_and_renders_full_detail(self):
+        discord = {"DISCORD_WEBHOOK_URL": "https://discord.com/api/webhooks/123/abc"}
+        self.assertEqual(notify.resolve_transport(discord)[0], "discord")
+        self.assertEqual(notify.resolve_transport({})[0], "none")
+
+        rows = sched.due_plants(
+            [{"name": "Café Ficus 🌿", "water": {"intervalDays": 7, "amountMl": 500,
+              "amountText": "about 2 cups", "method": "Water until it drains"},
+              "location": "Living room", "lastWatered": "2026-09-01"}],
+            "2026-09-19",
+        )
+        msg = notify.build_message(rows, "2026-09-19", "https://example.com/#today", "discord")
+        self.assertIn("Café Ficus 🌿", msg)
+        self.assertIn("Living room", msg)
+        self.assertLessEqual(len(msg), notify.MAX_DISCORD_CHARS)
 
     def test_telegram_message_keeps_full_unicode_and_detail(self):
         # Unlike the carrier-gateway route, Telegram supports full unicode and

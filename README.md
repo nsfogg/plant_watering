@@ -95,11 +95,25 @@ It runs **hourly**, and `scripts/notify.py` sends on the first run at or after t
 
 **Settings → Warn me this many days early** adds a heads-up line for plants coming due soon, if you want the warning before the day itself.
 
-Pick **one** of the three routes below and add its secrets under **Settings → Secrets and variables → Actions → New repository secret**. If more than one is configured, Twilio wins, then Telegram, then the email gateway.
+Pick **one** of the four routes below and add its secrets under **Settings → Secrets and variables → Actions → New repository secret**. If more than one is configured, priority is Twilio, then Telegram, then Discord, then the email gateway — but you only need one.
 
-### Route A — Telegram (free, recommended)
+### Route A — Discord (free, simplest to set up)
 
-Carriers are shutting down their email-to-SMS gateways one at a time (AT&T's is already gone), so this is now the most reliable free option. Messages arrive as a push notification in the Telegram app — full detail, no length limit worth worrying about, emoji and all.
+No account beyond Discord itself, no bot to create — just one URL.
+
+1. Open Discord (or create a free account). Make a server for yourself if you don't already have one: **+** at the bottom of the server list → **Create My Own** → "For me and my friends" is fine.
+2. Pick the channel you want reminders in → the gear icon (Edit Channel) → **Integrations** → **Webhooks** → **New Webhook**.
+3. Name it (e.g. "Plant Care"), then **Copy Webhook URL**.
+
+| Secret | Value |
+|---|---|
+| `DISCORD_WEBHOOK_URL` | the URL you copied |
+
+Reminders arrive as a message in that channel, with a push notification from the Discord app exactly like a DM.
+
+### Route B — Telegram (free)
+
+A little more setup than Discord, but works the same way — a push notification with the full message, no length limit worth worrying about.
 
 1. In Telegram, message **[@BotFather](https://t.me/BotFather)** → send `/newbot` → follow the prompts (any name, any username ending in `bot`). It replies with a token that looks like `123456789:AAExampleToken...` — that's `TELEGRAM_BOT_TOKEN`.
 2. Send your new bot any message (e.g. "hi") so it knows where to reply.
@@ -110,7 +124,7 @@ Carriers are shutting down their email-to-SMS gateways one at a time (AT&T's is 
 | `TELEGRAM_BOT_TOKEN` | from @BotFather |
 | `TELEGRAM_CHAT_ID` | from the `getUpdates` response |
 
-### Route B — Twilio (paid, pennies per message)
+### Route C — Twilio (paid, pennies per message)
 
 The most universal option — a real SMS, no app required.
 
@@ -121,9 +135,9 @@ The most universal option — a real SMS, no app required.
 | `TWILIO_FROM` | your Twilio number, `+15551234567` |
 | `SMS_TO` | your phone, `+15551234567` |
 
-### Route C — your carrier's email-to-SMS gateway (free, increasingly unreliable)
+### Route D — your carrier's email-to-SMS gateway (free, increasingly unreliable)
 
-No account beyond Gmail, but carriers are actively retiring these — **AT&T's `txt.att.net` no longer works for most numbers.** Try Route A instead unless you know your carrier's gateway is still alive.
+No account beyond Gmail, but carriers are actively retiring these — **AT&T's `txt.att.net` no longer works for most numbers.** Try Route A or B instead unless you know your carrier's gateway is still alive. (Or skip the gateway trick entirely and point `SMS_TO_EMAIL` at your own inbox — same secrets, and it always works as long as Gmail does.)
 
 | Secret | Value |
 |---|---|
@@ -131,7 +145,7 @@ No account beyond Gmail, but carriers are actively retiring these — **AT&T's `
 | `SMTP_PORT` | `587` |
 | `SMTP_USER` | your Gmail address |
 | `SMTP_PASS` | a Gmail **app password** ([myaccount.google.com/apppasswords](https://myaccount.google.com/apppasswords), requires 2-factor auth) |
-| `SMS_TO_EMAIL` | `<your 10-digit number>@<gateway>` |
+| `SMS_TO_EMAIL` | `<your 10-digit number>@<gateway>`, or your own email address |
 
 Gateways: Verizon `vtext.com` · T-Mobile `tmomail.net` · Google Fi `msg.fi.google.com` · US Cellular `email.uscc.net` · Cricket `sms.cricketwireless.net` · Boost `sms.myboostmobile.com` · Metro `mymetropcs.com`
 

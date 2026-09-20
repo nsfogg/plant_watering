@@ -745,7 +745,10 @@ async function renderNotifyStatus() {
     box.className = 'sync-state';
     box.innerHTML = '<span class="dot"></span>The daily check has not run yet. It runs hourly once this is on GitHub\'s default branch.';
   } else if (state.lastSent) {
-    const how = { twilio: 'Twilio', telegram: 'Telegram', email: 'your carrier\'s email gateway' }[state.transport] || 'an unknown transport';
+    const how = {
+      twilio: 'Twilio', telegram: 'Telegram', discord: 'Discord',
+      email: 'your carrier\'s email gateway',
+    }[state.transport] || 'an unknown transport';
     const plants = Array.isArray(state.lastPlants) && state.lastPlants.length
       ? ` — ${state.lastPlants.join(', ')}` : '';
     box.className = 'sync-state clean';
