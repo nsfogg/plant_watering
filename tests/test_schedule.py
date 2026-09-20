@@ -15,6 +15,7 @@ import json
 import subprocess
 import sys
 import unittest
+import unittest.mock as mock
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -325,6 +326,52 @@ class TestMessage(unittest.TestCase):
         self.assertEqual(notify.resolve_transport(all_three)[0], "twilio")
         discord_and_email = {k: v for k, v in all_three.items() if not k.startswith("TWILIO") and k != "SMS_TO"}
         self.assertEqual(notify.resolve_transport(discord_and_email)[0], "discord")
+
+    def test_discord_send_uses_a_real_user_agent(self):
+        # Discord's webhook endpoint sits behind Cloudflare, which blocks
+        # urllib's default "Python-urllib/x.y" agent with a plain HTTP 403
+        # (Cloudflare error 1010) before the request ever reaches Discord.
+        # Losing this header is a silent, easy way to break delivery again.
+        captured = {}
+
+        class FakeResponse:
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *exc):
+                return False
+
+            def read(self):
+                return b""
+
+        def fake_urlopen(req, timeout=30):
+            captured["headers"] = {k.lower(): v for k, v in req.header_items()}
+            return FakeResponse()
+
+        with mock.patch("notify.urllib.request.urlopen", fake_urlopen):
+            notify.send_discord("test", {"webhook_url": "https://discord.com/api/webhooks/1/x"})
+
+        ua = captured["headers"].get("user-agent", "")
+        self.assertTrue(ua, "send_discord must set an explicit User-Agent")
+        self.assertNotIn("python-urllib", ua.lower())
+
+    def test_discord_explains_a_cloudflare_block_in_plain_language(self):
+        # A real Cloudflare block is a plain-text/HTML 403, not Discord's own
+        # JSON error shape -- the message should say so rather than just
+        # printing the raw Cloudflare body.
+        import urllib.error
+
+        body = b"error code: 1010"
+        err = urllib.error.HTTPError("https://discord.com/x", 403, "Forbidden", {}, None)
+        err.read = lambda: body
+
+        def fake_urlopen(req, timeout=30):
+            raise err
+
+        with mock.patch("notify.urllib.request.urlopen", fake_urlopen):
+            with self.assertRaises(SystemExit) as ctx:
+                notify.send_discord("test", {"webhook_url": "https://discord.com/api/webhooks/1/x"})
+        self.assertIn("Cloudflare", str(ctx.exception))
 
     def test_discord_resolves_and_renders_full_detail(self):
         discord = {"DISCORD_WEBHOOK_URL": "https://discord.com/api/webhooks/123/abc"}
