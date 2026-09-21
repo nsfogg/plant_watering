@@ -1,3 +1,12 @@
 {
-  "note": "Written by scripts/notify.py on every run of the daily watering check. The site reads it to show whether reminders are working. No need to edit this by hand."
+  "lastError": null,
+  "lastNotified": "2026-09-21",
+  "lastPlants": [
+    "Monstera (example)"
+  ],
+  "lastRun": "2026-09-21",
+  "lastRunDue": 1,
+  "lastSent": "2026-09-21",
+  "note": "Written by scripts/notify.py on every run of the daily watering check. The site reads it to show whether reminders are working. No need to edit this by hand.",
+  "transport": "discord"
 }
