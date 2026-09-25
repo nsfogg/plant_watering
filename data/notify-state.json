@@ -1,12 +1,12 @@
 {
   "lastError": null,
-  "lastNotified": "2026-09-24",
+  "lastNotified": "2026-09-25",
   "lastPlants": [
     "Monstera (example)",
     "Snake Plant (example)"
   ],
-  "lastRun": "2026-09-24",
-  "lastRunDue": 2,
+  "lastRun": "2026-09-25",
+  "lastRunDue": 0,
   "lastSent": "2026-09-24",
   "note": "Written by scripts/notify.py on every run of the daily watering check. The site reads it to show whether reminders are working. No need to edit this by hand.",
   "transport": "discord"
