@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updatedAt": "2026-09-19T18:56:22.823Z",
+  "updatedAt": "2026-09-25T16:45:17.034Z",
   "settings": {
     "timezone": "America/New_York",
     "siteUrl": "https://nsfogg.github.io/plant_watering/",
@@ -10,73 +10,171 @@
   },
   "plants": [
     {
-      "id": "example-monstera",
-      "name": "Monstera (example)",
-      "species": "Monstera deliciosa",
-      "location": "Living room, 6 ft from the south window",
+      "id": "monstera-window-corner",
+      "name": "Monstera",
+      "species": "Monstera deliciosa (Swiss cheese plant)",
+      "location": "Corner near the window",
+      "water": {
+        "intervalDays": 7,
+        "winterIntervalDays": 18,
+        "amountMl": 700,
+        "amountText": "about 3 cups",
+        "method": "Water slowly until it runs from the drainage holes, then empty the saucer. Let the top 2-3 inches of soil dry before watering again."
+      },
+      "sun": "Bright indirect light; keep out of direct midday sun, which can scorch the leaves",
+      "soil": "Chunky, well-draining aroid mix (bark, perlite, potting soil)",
+      "fertilizer": "Balanced liquid fertilizer monthly, spring through summer; skip in winter",
+      "humidity": "40-60% — mist occasionally or run a humidifier nearby",
+      "temperature": "65-85°F, away from cold drafts and AC vents",
+      "toxicity": "Toxic to cats and dogs if chewed (calcium oxalate crystals)",
+      "healthySigns": "Firm, glossy deep-green leaves with open fenestrations (splits); steady new growth",
+      "warningSigns": "Yellow leaves = overwatered, let it dry out more. Crispy brown edges = underwatered or humidity too low. Drooping = thirsty, water soon.",
+      "notes": "One leaf already has minor brown-tipped damage in the photo — not urgent, just keep an eye on it. Rotate the pot occasionally for even growth. Last-watered date not yet recorded — log it in the app once known so the schedule is accurate.",
+      "photos": {
+        "healthy": [
+          "data/images/monstera-healthy-1.jpg"
+        ],
+        "unhealthy": []
+      },
+      "lastWatered": "",
+      "history": [],
+      "archived": false,
+      "createdAt": "2026-09-25T16:45:17.034Z",
+      "updatedAt": "2026-09-25T16:45:17.034Z"
+    },
+    {
+      "id": "mixed-patio-planter",
+      "name": "Mixed Planter (Bird of Paradise + Mandevilla)",
+      "species": "Strelitzia sp. (Bird of Paradise) + Mandevilla sp., combo planter",
+      "location": "Kitchen counter",
       "water": {
         "intervalDays": 7,
         "winterIntervalDays": 12,
         "amountMl": 500,
         "amountText": "about 2 cups",
-        "method": "Water slowly until it drains from the bottom, then empty the saucer"
+        "method": "Water thoroughly until it drains; let the top 1-2 inches of soil dry before watering again"
       },
-      "sun": "Bright indirect light",
-      "soil": "Chunky aroid mix — bark, perlite, potting soil",
-      "fertilizer": "Balanced 20-20-20, half strength, every 4 weeks Apr-Sep",
-      "humidity": "50%+ — mist or group with other plants",
-      "temperature": "65-85°F, keep away from cold drafts",
-      "toxicity": "Toxic to cats and dogs if chewed",
-      "healthySigns": "Firm, glossy dark-green leaves with open fenestrations; new growth every few weeks",
-      "warningSigns": "Yellow lower leaves = overwatered. Crispy brown edges = too dry or low humidity. Drooping = thirsty.",
-      "notes": "Rotate a quarter turn each watering so it grows evenly. Wipe leaves monthly.",
+      "sun": "Full sun to bright indirect — the Mandevilla blooms best with 4-6+ hours of direct sun",
+      "soil": "Well-draining potting mix with added perlite/organic matter",
+      "fertilizer": "Balanced fertilizer every 2-4 weeks, spring through summer; skip in winter",
+      "humidity": "Moderate to high — both plants appreciate occasional misting",
+      "temperature": "65-85°F; the Mandevilla is frost-tender, bring it in below 50°F",
+      "toxicity": "Mandevilla sap can irritate skin/eyes and is toxic if ingested; Bird of Paradise seeds/fruit are toxic to pets",
+      "healthySigns": "Upright glossy Bird of Paradise leaves; Mandevilla producing white blooms and healthy new vine growth",
+      "warningSigns": "Yellowing or dropping leaves = overwatered. Wilting or crispy leaves = underwatered. Few or no blooms = not enough light.",
+      "notes": "Best-guess ID from photo — this is a mixed nursery planter with at least two different plants sharing one pot (a Bird-of-Paradise-type upright plant and a flowering Mandevilla vine). They share soil, so water on this schedule but watch each one separately for stress signs. Last-watered date not yet recorded — log it in the app once known.",
       "photos": {
-        "healthy": [],
+        "healthy": [
+          "data/images/mixed-mandevilla-planter-healthy-1.jpg"
+        ],
         "unhealthy": []
       },
-      "lastWatered": "2026-09-12",
-      "history": [
-        "2026-09-12",
-        "2026-09-05",
-        "2026-08-29"
-      ],
+      "lastWatered": "",
+      "history": [],
       "archived": false,
-      "createdAt": "2026-09-19T00:00:00.000Z",
-      "updatedAt": "2026-09-19T00:00:00.000Z"
+      "createdAt": "2026-09-25T16:45:17.034Z",
+      "updatedAt": "2026-09-25T16:45:17.034Z"
     },
     {
-      "id": "example-snake-plant",
-      "name": "Snake Plant (example)",
-      "species": "Dracaena trifasciata",
-      "location": "Bedroom corner",
+      "id": "phalaenopsis-orchid-table",
+      "name": "Moth Orchid",
+      "species": "Phalaenopsis sp.",
+      "location": "Table by the window",
       "water": {
-        "intervalDays": 21,
-        "winterIntervalDays": 35,
-        "amountMl": 300,
-        "amountText": "about 1 1/4 cups",
-        "method": "Soak the soil, then let it dry out completely before the next watering"
+        "intervalDays": 7,
+        "winterIntervalDays": 10,
+        "amountMl": 150,
+        "amountText": "about 3 ice cubes, or a light soak",
+        "method": "Water when the bark is dry and roots look silvery rather than green. Soak and let fully drain — never let the roots or crown sit in water, and never water directly into the crown (center)."
       },
-      "sun": "Tolerates low light, happiest in medium indirect",
-      "soil": "Fast-draining cactus/succulent mix",
-      "fertilizer": "Cactus feed twice a year, spring and midsummer",
-      "humidity": "Anything — very forgiving",
-      "temperature": "60-85°F",
-      "toxicity": "Mildly toxic to pets",
-      "healthySigns": "Stiff upright leaves, deep green with pale banding",
-      "warningSigns": "Mushy base or leaves falling over = overwatered. Wrinkled leaves = under-watered.",
-      "notes": "The most common way to kill this plant is kindness — when in doubt, skip a watering.",
+      "sun": "Bright, indirect light — an east-facing window is ideal. Direct sun can scorch the leaves.",
+      "soil": "Orchid bark mix — NOT regular potting soil. Must drain very freely.",
+      "fertilizer": "Weak balanced orchid fertilizer (quarter strength) every 2 weeks while actively growing; skip while blooming",
+      "humidity": "50-80% — use a pebble tray or humidifier, since typical home humidity is usually too low",
+      "temperature": "65-80°F daytime; a ~10°F nighttime drop can help trigger reblooming",
+      "toxicity": "Non-toxic to cats and dogs",
+      "healthySigns": "Firm green-silver roots, thick unwrinkled leaves, long-lasting blooms",
+      "warningSigns": "Mushy black roots or crown = overwatered (crown rot — serious, can kill the plant). Shriveled leaves or dry silvery roots = underwatered. A few yellow leaves at the very bottom can be a normal, harmless cycle.",
+      "notes": "Currently in full bloom. Last-watered date not yet recorded — log it in the app once known so the schedule is accurate.",
       "photos": {
-        "healthy": [],
+        "healthy": [
+          "data/images/phalaenopsis-orchid-healthy-1.jpg"
+        ],
         "unhealthy": []
       },
-      "lastWatered": "2026-09-02",
-      "history": [
-        "2026-09-02",
-        "2026-08-12"
-      ],
+      "lastWatered": "",
+      "history": [],
       "archived": false,
-      "createdAt": "2026-09-19T00:00:00.000Z",
-      "updatedAt": "2026-09-19T00:00:00.000Z"
+      "createdAt": "2026-09-25T16:45:17.034Z",
+      "updatedAt": "2026-09-25T16:45:17.034Z"
+    },
+    {
+      "id": "mandevilla-balcony-trellis",
+      "name": "Mandevilla (balcony trellis)",
+      "species": "Mandevilla sp., red/pink-flowering cultivar",
+      "location": "Balcony, near the sliding door",
+      "water": {
+        "intervalDays": 5,
+        "winterIntervalDays": 12,
+        "amountMl": 400,
+        "amountText": "about 1¾ cups",
+        "method": "Water deeply until it drains; check the top 1-2 inches of soil and water when dry. Outdoor containers dry out faster in sun and wind — check more often than an indoor plant."
+      },
+      "sun": "Full sun — at least 4-6 hours of direct sun daily for best blooming",
+      "soil": "Well-draining potting mix",
+      "fertilizer": "Balanced or bloom-boosting fertilizer every 2-4 weeks, spring through summer",
+      "humidity": "Average outdoor humidity is fine",
+      "temperature": "Thrives 65-85°F; bring indoors once nights drop below 50°F",
+      "toxicity": "Sap can irritate skin and eyes; toxic if ingested by pets or people",
+      "healthySigns": "Glossy deep-green leaves, healthy vine growth, regular new buds and blooms",
+      "warningSigns": "Yellow leaves or leaf drop = overwatered. Wilting or crispy leaves = underwatered, or too much sun without enough water.",
+      "notes": "Container-grown on a trellis, outdoors on the balcony — check soil moisture more often than an indoor plant, especially in hot or windy weather. Bring it indoors before the first frost, once nights are below 50°F. Last-watered date not yet recorded — log it in the app once known.",
+      "photos": {
+        "healthy": [
+          "data/images/mandevilla-trellis-healthy-1.jpg"
+        ],
+        "unhealthy": []
+      },
+      "lastWatered": "",
+      "history": [],
+      "archived": false,
+      "createdAt": "2026-09-25T16:45:17.034Z",
+      "updatedAt": "2026-09-25T16:45:17.034Z"
+    },
+    {
+      "id": "pothos-hanging-basket",
+      "name": "Pothos (hanging basket)",
+      "species": "Epipremnum aureum (Pothos) or Philodendron hederaceum — very similar care either way",
+      "location": "Hanging near the window",
+      "water": {
+        "intervalDays": 9,
+        "winterIntervalDays": 16,
+        "amountMl": 250,
+        "amountText": "about 1 cup",
+        "method": "Water thoroughly until it drains, then let the top 1-2 inches of soil dry out before watering again — check by feel, not by calendar."
+      },
+      "sun": "Bright indirect light; tolerates medium/low light but grows more slowly",
+      "soil": "Standard well-draining potting mix",
+      "fertilizer": "Balanced liquid fertilizer monthly, spring through summer; skip in winter",
+      "humidity": "Average home humidity is fine",
+      "temperature": "65-80°F, away from cold drafts",
+      "toxicity": "Toxic to cats and dogs if chewed",
+      "healthySigns": "Firm, glossy green leaves and active new vine growth",
+      "warningSigns": "Yellow leaves are usually from OVERWATERING (the most common cause) — let the soil dry out more before watering again, rather than watering more. Crispy brown leaves = underwatered or humidity too low.",
+      "notes": "⚠️ Currently showing yellowing leaves in the photo. The most likely cause is overwatering (roots sitting in wet soil), not too little water — let the soil dry out more than usual before the next watering, confirm the basket/pot actually drains, and trim off any fully yellowed leaves. Still has the nursery tags attached.",
+      "photos": {
+        "healthy": [
+          "data/images/pothos-hanging-unhealthy-1.jpg"
+        ],
+        "unhealthy": [
+          "data/images/pothos-hanging-unhealthy-1.jpg"
+        ]
+      },
+      "lastWatered": "",
+      "history": [],
+      "archived": false,
+      "createdAt": "2026-09-25T16:45:17.034Z",
+      "updatedAt": "2026-09-25T16:45:17.034Z"
     }
   ],
   "deleted": {}
