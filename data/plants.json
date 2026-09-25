@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updatedAt": "2026-09-25T16:45:17.034Z",
+  "updatedAt": "2026-09-25T16:49:59.625Z",
   "settings": {
     "timezone": "America/New_York",
     "siteUrl": "https://nsfogg.github.io/plant_watering/",
@@ -29,18 +29,20 @@
       "toxicity": "Toxic to cats and dogs if chewed (calcium oxalate crystals)",
       "healthySigns": "Firm, glossy deep-green leaves with open fenestrations (splits); steady new growth",
       "warningSigns": "Yellow leaves = overwatered, let it dry out more. Crispy brown edges = underwatered or humidity too low. Drooping = thirsty, water soon.",
-      "notes": "One leaf already has minor brown-tipped damage in the photo — not urgent, just keep an eye on it. Rotate the pot occasionally for even growth. Last-watered date not yet recorded — log it in the app once known so the schedule is accurate.",
+      "notes": "One leaf already has minor brown-tipped damage in the photo — not urgent, just keep an eye on it. Rotate the pot occasionally for even growth.",
       "photos": {
         "healthy": [
           "data/images/monstera-healthy-1.jpg"
         ],
         "unhealthy": []
       },
-      "lastWatered": "",
-      "history": [],
+      "lastWatered": "2026-09-25",
+      "history": [
+        "2026-09-25"
+      ],
       "archived": false,
       "createdAt": "2026-09-25T16:45:17.034Z",
-      "updatedAt": "2026-09-25T16:45:17.034Z"
+      "updatedAt": "2026-09-25T16:49:59.625Z"
     },
     {
       "id": "mixed-patio-planter",
@@ -62,18 +64,20 @@
       "toxicity": "Mandevilla sap can irritate skin/eyes and is toxic if ingested; Bird of Paradise seeds/fruit are toxic to pets",
       "healthySigns": "Upright glossy Bird of Paradise leaves; Mandevilla producing white blooms and healthy new vine growth",
       "warningSigns": "Yellowing or dropping leaves = overwatered. Wilting or crispy leaves = underwatered. Few or no blooms = not enough light.",
-      "notes": "Best-guess ID from photo — this is a mixed nursery planter with at least two different plants sharing one pot (a Bird-of-Paradise-type upright plant and a flowering Mandevilla vine). They share soil, so water on this schedule but watch each one separately for stress signs. Last-watered date not yet recorded — log it in the app once known.",
+      "notes": "Best-guess ID from photo — this is a mixed nursery planter with at least two different plants sharing one pot (a Bird-of-Paradise-type upright plant and a flowering Mandevilla vine). They share soil, so water on this schedule but watch each one separately for stress signs.",
       "photos": {
         "healthy": [
           "data/images/mixed-mandevilla-planter-healthy-1.jpg"
         ],
         "unhealthy": []
       },
-      "lastWatered": "",
-      "history": [],
+      "lastWatered": "2026-09-25",
+      "history": [
+        "2026-09-25"
+      ],
       "archived": false,
       "createdAt": "2026-09-25T16:45:17.034Z",
-      "updatedAt": "2026-09-25T16:45:17.034Z"
+      "updatedAt": "2026-09-25T16:49:59.625Z"
     },
     {
       "id": "phalaenopsis-orchid-table",
@@ -95,18 +99,20 @@
       "toxicity": "Non-toxic to cats and dogs",
       "healthySigns": "Firm green-silver roots, thick unwrinkled leaves, long-lasting blooms",
       "warningSigns": "Mushy black roots or crown = overwatered (crown rot — serious, can kill the plant). Shriveled leaves or dry silvery roots = underwatered. A few yellow leaves at the very bottom can be a normal, harmless cycle.",
-      "notes": "Currently in full bloom. Last-watered date not yet recorded — log it in the app once known so the schedule is accurate.",
+      "notes": "Currently in full bloom.",
       "photos": {
         "healthy": [
           "data/images/phalaenopsis-orchid-healthy-1.jpg"
         ],
         "unhealthy": []
       },
-      "lastWatered": "",
-      "history": [],
+      "lastWatered": "2026-09-25",
+      "history": [
+        "2026-09-25"
+      ],
       "archived": false,
       "createdAt": "2026-09-25T16:45:17.034Z",
-      "updatedAt": "2026-09-25T16:45:17.034Z"
+      "updatedAt": "2026-09-25T16:49:59.625Z"
     },
     {
       "id": "mandevilla-balcony-trellis",
@@ -128,18 +134,20 @@
       "toxicity": "Sap can irritate skin and eyes; toxic if ingested by pets or people",
       "healthySigns": "Glossy deep-green leaves, healthy vine growth, regular new buds and blooms",
       "warningSigns": "Yellow leaves or leaf drop = overwatered. Wilting or crispy leaves = underwatered, or too much sun without enough water.",
-      "notes": "Container-grown on a trellis, outdoors on the balcony — check soil moisture more often than an indoor plant, especially in hot or windy weather. Bring it indoors before the first frost, once nights are below 50°F. Last-watered date not yet recorded — log it in the app once known.",
+      "notes": "Container-grown on a trellis, outdoors on the balcony — check soil moisture more often than an indoor plant, especially in hot or windy weather. Bring it indoors before the first frost, once nights are below 50°F.",
       "photos": {
         "healthy": [
           "data/images/mandevilla-trellis-healthy-1.jpg"
         ],
         "unhealthy": []
       },
-      "lastWatered": "",
-      "history": [],
+      "lastWatered": "2026-09-25",
+      "history": [
+        "2026-09-25"
+      ],
       "archived": false,
       "createdAt": "2026-09-25T16:45:17.034Z",
-      "updatedAt": "2026-09-25T16:45:17.034Z"
+      "updatedAt": "2026-09-25T16:49:59.625Z"
     },
     {
       "id": "pothos-hanging-basket",
@@ -170,11 +178,13 @@
           "data/images/pothos-hanging-unhealthy-1.jpg"
         ]
       },
-      "lastWatered": "",
-      "history": [],
+      "lastWatered": "2026-09-25",
+      "history": [
+        "2026-09-25"
+      ],
       "archived": false,
       "createdAt": "2026-09-25T16:45:17.034Z",
-      "updatedAt": "2026-09-25T16:45:17.034Z"
+      "updatedAt": "2026-09-25T16:49:59.625Z"
     }
   ],
   "deleted": {}
