@@ -1,12 +1,12 @@
 {
   "version": 1,
-  "updatedAt": "2026-09-25T16:49:59.625Z",
+  "updatedAt": "2026-09-25T17:15:25.033Z",
   "settings": {
     "timezone": "America/New_York",
     "siteUrl": "https://nsfogg.github.io/plant_watering/",
-    "notifyHour": 15,
+    "notifyHour": 18,
     "remindAheadDays": 0,
-    "updatedAt": "2026-09-19T18:56:15.474Z"
+    "updatedAt": "2026-09-25T17:15:22.256Z"
   },
   "plants": [
     {
