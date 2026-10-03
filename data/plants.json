@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updatedAt": "2026-09-25T17:15:31.900Z",
+  "updatedAt": "2026-10-03T14:58:47.396Z",
   "settings": {
     "timezone": "America/New_York",
     "siteUrl": "https://nsfogg.github.io/plant_watering/",
@@ -141,13 +141,14 @@
         ],
         "unhealthy": []
       },
-      "lastWatered": "2026-09-25",
+      "lastWatered": "2026-10-03",
       "history": [
+        "2026-10-03",
         "2026-09-25"
       ],
       "archived": false,
       "createdAt": "2026-09-25T16:45:17.034Z",
-      "updatedAt": "2026-09-25T16:49:59.625Z"
+      "updatedAt": "2026-10-03T14:58:43.866Z"
     },
     {
       "id": "pothos-hanging-basket",
