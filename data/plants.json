@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updatedAt": "2026-10-06T01:16:50.509Z",
+  "updatedAt": "2026-10-06T01:21:54.811Z",
   "settings": {
     "timezone": "America/New_York",
     "siteUrl": "https://nsfogg.github.io/plant_watering/",
@@ -36,13 +36,14 @@
         ],
         "unhealthy": []
       },
-      "lastWatered": "2026-09-25",
+      "lastWatered": "2026-10-05",
       "history": [
+        "2026-10-05",
         "2026-09-25"
       ],
       "archived": false,
       "createdAt": "2026-09-25T16:45:17.034Z",
-      "updatedAt": "2026-09-25T16:49:59.625Z"
+      "updatedAt": "2026-10-06T01:21:48.508Z"
     },
     {
       "id": "mixed-patio-planter",
@@ -180,13 +181,14 @@
           "data/images/pothos-hanging-unhealthy-1.jpg"
         ]
       },
-      "lastWatered": "2026-09-25",
+      "lastWatered": "2026-10-05",
       "history": [
+        "2026-10-05",
         "2026-09-25"
       ],
       "archived": false,
       "createdAt": "2026-09-25T16:45:17.034Z",
-      "updatedAt": "2026-09-25T16:49:59.625Z"
+      "updatedAt": "2026-10-06T01:21:50.782Z"
     }
   ],
   "deleted": {}
