@@ -1,15 +1,15 @@
 {
   "lastError": null,
-  "lastNotified": "2026-10-30",
+  "lastNotified": "2026-10-31",
   "lastPlants": [
     "Mandevilla (balcony trellis)",
     "Mixed Planter (Bird of Paradise + Mandevilla)",
     "Monstera",
     "Moth Orchid"
   ],
-  "lastRun": "2026-10-30",
+  "lastRun": "2026-10-31",
   "lastRunDue": 4,
-  "lastSent": "2026-10-30",
+  "lastSent": "2026-10-31",
   "note": "Written by scripts/notify.py on every run of the daily watering check. The site reads it to show whether reminders are working. No need to edit this by hand.",
   "transport": "discord"
 }
